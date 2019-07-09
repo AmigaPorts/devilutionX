@@ -3,7 +3,9 @@
 #include "stubs.h"
 #include <SDL/SDL.h>
 #include <string>
-
+#include "../SourceS/miniwin/misc.h"
+#include "../SourceS/miniwin/com.h"
+#include "sdl1_wrapper.h"
 #include "DiabloUI/diabloui.h"
 
 #ifdef _MSC_VER
@@ -302,7 +304,9 @@ WINBOOL SetForegroundWindow(HWND hWnd)
  */
 HWND SetFocus(HWND hWnd)
 {
-	SDL_RaiseWindow(window);
+	if (SDL_SetWindowInputFocus(window) <= -1) {
+		SDL_Log(SDL_GetError());
+	}
 	MainWndProc(NULL, DVL_WM_ACTIVATEAPP, true, 0); // SDL_WINDOWEVENT_FOCUS_GAINED
 	return NULL;
 }
@@ -810,4 +814,5 @@ void __debugbreak()
 {
 	DUMMY();
 }
+
 }
