@@ -342,7 +342,7 @@ HWND CreateWindowExA(
 	}
 	atexit(SDL_Quit);
 
-	int upscale = 0;//1; //arczi
+	int upscale = 1;
 	DvlIntSetting("upscale", &upscale);
 	DvlIntSetting("fullscreen", &fullscreen);
 
