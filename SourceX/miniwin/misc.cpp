@@ -363,6 +363,7 @@ HWND CreateWindowExA(
 		flags |= SDL_WINDOW_INPUT_GRABBED;
 	}
 
+
 	window = SDL_CreateWindow(lpWindowName, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, nWidth, nHeight, flags);
 	if (window == NULL) {
 		SDL_Log(SDL_GetError());
@@ -524,7 +525,7 @@ HWND GetForegroundWindow()
 
 LPTOP_LEVEL_EXCEPTION_FILTER SetUnhandledExceptionFilter(LPTOP_LEVEL_EXCEPTION_FILTER lpTopLevelExceptionFilter)
 {
-//	DUMMY();
+	DUMMY();
 	return lpTopLevelExceptionFilter;
 }
 
