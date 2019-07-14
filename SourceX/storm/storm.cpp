@@ -597,7 +597,7 @@ BOOL SVidPlayContinue(void)
 
 	/*
 	if (deviceId && SDL_QueueAudio(deviceId, smk_get_audio(SVidSMK, 0), smk_get_audio_size(SVidSMK, 0)) <= -1) {
-		SDL_Log(SDL_GetError());
+		//SDL_Log(SDL_GetError());
 		return false;
 	}
 	*/
