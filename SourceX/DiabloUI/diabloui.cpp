@@ -773,7 +773,7 @@ void UiRender()
 	}
 	UiRenderItems(gUiItems, gUiItemCnt);
 	DrawLogo();
-	DrawMouse();
+	//DrawMouse();
 	UiFadeIn();
 }
 
