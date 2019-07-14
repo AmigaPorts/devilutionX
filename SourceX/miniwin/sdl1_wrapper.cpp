@@ -90,7 +90,7 @@ SDL_bool SDL_SetHint(const char* name, const char* value)
 
 int SDL_ShowSimpleMessageBox(Uint32      flags, const char* title, const char* message, SDL_Window* window)
 {
-	printf("%s", message);
+    printf("AAAAAA = %s", message);
     return 1;
 }
 
@@ -149,7 +149,7 @@ void SDL_DestroyWindow(SDL_Window* window)
 
 SDL_Surface* SDL_GetWindowSurface(SDL_Window* window)
 {
-	if (window)
+	if (window)		
 		return window->surface;
 	else
 		return NULL;
@@ -280,7 +280,7 @@ int SDL_GetRendererOutputSize(SDL_Renderer* renderer, int* w, int* h)
 
 void SDL_WarpMouseInWindow(SDL_Window* window, int x, int y)
 {
-	SDL_WarpMouse(x, y);
+    SDL_WarpMouse(x, y);
 }
 
 SDL_Surface* SDL_ConvertSurfaceFormat(SDL_Surface* src, Uint32 pixel_format, Uint32 flags)
