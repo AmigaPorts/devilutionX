@@ -122,7 +122,9 @@ UINT GetWindowsDirectoryA(LPSTR lpBuffer, UINT uSize)
 {
 	char *name = SDL_GetPrefPath("diasurgical", "devilution");
 	strncpy(lpBuffer, name, uSize);
-	//SDL_free(name);
+	if(name!=NULL)
+		eprintf("SDL_free(name) =: %s\n", name);
+		//SDL_free(name);
 
 	DWORD len = strlen(lpBuffer);
 
@@ -148,7 +150,9 @@ DWORD GetModuleFileNameA(HMODULE hModule, LPSTR lpFilename, DWORD nSize)
 {
 	char *name = SDL_GetPrefPath("diasurgical", "devilution");
 	strncpy(lpFilename, name, nSize);
-	//SDL_free(name);
+	if(name==NULL)
+		eprintf("SDL_free(name) =: %s\n", name);
+		//SDL_free(name);
 
 	DWORD len = strlen(lpFilename);
 
@@ -205,6 +209,7 @@ DWORD GetCurrentDirectory(DWORD nBufferLength, LPTSTR lpBuffer)
 		SDL_Log(SDL_GetError());
 		base_path = SDL_strdup("./");
 	}
+	base_path = SDL_strdup("./");
 	eprintf("BasePath: %s\n", base_path);
 
 	strncpy(lpBuffer, base_path, nBufferLength);
