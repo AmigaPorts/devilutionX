@@ -7,6 +7,8 @@
 extern "C" {
 #endif
 
+static SDL_bool isTextInputActive = (SDL_bool)false;
+
 struct SDL_Window {
     const void *magic;
     Uint32 id;
@@ -88,7 +90,7 @@ SDL_bool SDL_SetHint(const char* name, const char* value)
     return (SDL_bool)1;
 }
 
-int SDL_ShowSimpleMessageBox(Uint32      flags, const char* title, const char* message, SDL_Window* window)
+int SDL_ShowSimpleMessageBox(Uint32 flags, const char* title, const char* message, SDL_Window* window)
 {
     printf("AAAAAA = %s\n", message);
     return 1;
@@ -149,7 +151,7 @@ void SDL_DestroyWindow(SDL_Window* window)
 
 SDL_Surface* SDL_GetWindowSurface(SDL_Window* window)
 {
-	if (window)		
+	if (window)
 		return window->surface;
 	else
 		return NULL;
@@ -254,12 +256,12 @@ const Uint8* SDL_GetKeyboardState(int* numkeys)
 
 void SDL_StopTextInput(void)
 {
-
+	isTextInputActive = (SDL_bool)false;
 }
 
 void SDL_StartTextInput(void)
 {
-
+	isTextInputActive = (SDL_bool)true;
 }
 
 void SDL_HideWindow(SDL_Window* window)
@@ -274,7 +276,7 @@ int SDL_GetRendererOutputSize(SDL_Renderer* renderer, int* w, int* h)
 
 void SDL_WarpMouseInWindow(SDL_Window* window, int x, int y)
 {
-    SDL_WarpMouse(x, y);
+	SDL_WarpMouse(x, y);
 }
 
 SDL_Surface* SDL_ConvertSurfaceFormat(SDL_Surface* src, Uint32 pixel_format, Uint32 flags)
@@ -284,7 +286,7 @@ SDL_Surface* SDL_ConvertSurfaceFormat(SDL_Surface* src, Uint32 pixel_format, Uin
 
 SDL_bool SDL_IsTextInputActive(void)
 {
-    return (SDL_bool)0;
+    return isTextInputActive;
 }
 
 int SDL_GetCurrentDisplayMode(int displayIndex, SDL_DisplayMode* mode)
@@ -294,7 +296,7 @@ int SDL_GetCurrentDisplayMode(int displayIndex, SDL_DisplayMode* mode)
 
 int SDL_UpdateTexture(SDL_Texture* texture, const SDL_Rect* rect, const void* pixels, int pitch)
 {
-    return 0;
+    return SDL_Flip(texture);
 }
 
 SDL_Texture* SDL_CreateTexture(SDL_Renderer* renderer, Uint32 format, int access, int w, int h)
@@ -346,7 +348,7 @@ int SDL_RenderCopy(SDL_Renderer*   renderer,
 
 void SDL_RenderPresent(SDL_Renderer* renderer)
 {
-	SDL_Flip(renderer);
+	//SDL_Flip(renderer);
 }
 
 void SDL_Log(const char *fmt, ...) {
@@ -356,7 +358,12 @@ void SDL_Log(const char *fmt, ...) {
 
 int SDL_SetSurfacePalette(SDL_Surface* surface, SDL_Palette* palette)
 {
-    return SDL_SetPalette(surface, surface->flags, palette->colors, 0, palette->ncolors);
+//    printf("Surface palette set!");
+
+//	for (int i = 0; i < palette->ncolors;i++)
+//		printf("%i: r(%i), g(%i), b(%i)", i, palette->colors[i].r, palette->colors[i].g, palette->colors[i].b);
+
+    return SDL_SetPalette(surface, 0/*SDL_LOGPAL|SDL_PHYSPAL*/, palette->colors, 0, palette->ncolors);
 }
 
 SDL_Palette *
@@ -471,6 +478,7 @@ SDL_Surface *
 SDL_CreateRGBSurfaceWithFormat(Uint32 flags, int width, int height, int depth,
                                Uint32 format)
 {
+    SDL_Surface * surface;
     Uint32 rmask, gmask, bmask, amask;
 
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
@@ -484,8 +492,12 @@ SDL_CreateRGBSurfaceWithFormat(Uint32 flags, int width, int height, int depth,
     bmask = 0x00ff0000;
     amask = 0xff000000;
 #endif
-
-    return SDL_CreateRGBSurface(flags, width, height, depth, rmask, gmask, bmask, amask);
+    if (depth == 8) {
+	surface = SDL_CreateRGBSurface(flags, width, height, depth, 0, 0, 0, 0);
+    }
+    else
+	surface = SDL_CreateRGBSurface(flags, width, height, depth, rmask, gmask, bmask, amask);
+    return surface;
 }
 
 char* SDL_GetPrefPath(const char* org, const char* app) { return (char*)org; }
