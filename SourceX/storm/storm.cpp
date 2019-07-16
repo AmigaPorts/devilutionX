@@ -511,6 +511,7 @@ BOOL SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 	smk_first(SVidSMK); // Decode first frame
 
 	smk_info_video(SVidSMK, &SVidWidth, &SVidHeight, NULL);
+
 	if (renderer) {
 		SDL_DestroyTexture(texture);
 		texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SVidWidth, SVidHeight);
@@ -521,6 +522,7 @@ BOOL SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 			SDL_Log(SDL_GetError());
 		}
 	}
+
 	memcpy(SVidPreviousPalette, orig_palette, 1024);
 
 #ifdef __AMIGA__
@@ -619,6 +621,7 @@ BOOL SVidPlayContinue(void)
 			SDL_Log(SDL_GetError());
 			return false;
 		}
+
 	} else {
 #ifndef __AMIGA__
 		int factor;
@@ -635,6 +638,7 @@ BOOL SVidPlayContinue(void)
 		SDL_Rect pal_surface_offset = { (SCREEN_WIDTH - scaledW) / 2, (SCREEN_HEIGHT - scaledH) / 2, scaledW, scaledH };
 		Uint32 format = SDL_GetWindowPixelFormat(window);
 		SDL_Surface *tmp = SDL_ConvertSurfaceFormat(SVidSurface, format, 0);
+
 		if (SDL_BlitScaled(tmp, NULL, surface, &pal_surface_offset) <= -1) {
 			SDL_Log(SDL_GetError());
 			return false;
@@ -647,6 +651,7 @@ BOOL SVidPlayContinue(void)
 		}
 #endif
 		SDL_FreeSurface(tmp);
+
 	}
 
 	bufferUpdated = true;
