@@ -234,7 +234,7 @@ bool UiFocusNavigation(SDL_Event *event)
 	}
 
 	if (event->type == SDL_KEYDOWN) {
-		switch (event->key.keysym.sym) {
+		switch (sym) {	
 		case SDLK_UP:
 			UiFocus(SelectedItem - 1, UiItemsWraps);
 			return true;
@@ -267,7 +267,7 @@ bool UiFocusNavigation(SDL_Event *event)
 	if (SDL_IsTextInputActive()) {
 		switch (event->type) {
 		case SDL_KEYDOWN:
-			switch (event->key.keysym.sym) {
+			switch (sym) {
 			case SDLK_v:
 				if (SDL_GetModState() & KMOD_CTRL) {
 					char *clipboard = SDL_GetClipboardText();
@@ -285,7 +285,12 @@ bool UiFocusNavigation(SDL_Event *event)
 				}
 				return true;
 			}
-			break;
+		break;
+		case SDL_KEYUP:
+			if (sym >= SDLK_a && sym <= SDLK_z)
+				selhero_CatToName(SDL_GetKeyName(sym), UiTextInput, UiTextInputLen);
+			return true;
+		break;
 /*
 Todo(Amiga): Fix this
 		case SDL_TEXTINPUT:
@@ -890,4 +895,5 @@ void DvlStringSetting(const char *valuename, char *string, int len)
 		SRegSaveString("devilutionx", valuename, 0, string);
 	}
 }
+
 }
