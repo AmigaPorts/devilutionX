@@ -136,11 +136,8 @@ SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint
 {
 	auto* window = new SDL_Window;
 
-#ifdef __AMIGA__
-	window->surface = SDL_SetVideoMode(w, h, 16, SDL_SWSURFACE);
-#else
-    window->surface = SDL_SetVideoMode(w, h, 32, flags);
-#endif
+	window->surface = SDL_SetVideoMode(w, h, D_BPP, SDL_SWSURFACE | SDL_FULLSCREEN);
+
 	return window;
 }
 
@@ -314,7 +311,7 @@ SDL_Texture* SDL_CreateTexture(SDL_Renderer* renderer, Uint32 format, int access
     bmask = 0x00ff0000;
     amask = 0xff000000;
 #endif
-    return SDL_CreateRGBSurface(renderer->flags, w, h, 16, rmask, gmask, bmask, amask);
+    return SDL_CreateRGBSurface(renderer->flags, w, h, D_BPP, rmask, gmask, bmask, amask);
 }
 
 int SDL_SetWindowInputFocus(SDL_Window* window)
@@ -366,8 +363,7 @@ int SDL_SetSurfacePalette(SDL_Surface* surface, SDL_Palette* palette)
     return SDL_SetPalette(surface, 0/*SDL_LOGPAL|SDL_PHYSPAL*/, palette->colors, 0, palette->ncolors);
 }
 
-SDL_Palette *
-SDL_AllocPalette(int ncolors)
+SDL_Palette * SDL_AllocPalette(int ncolors)
 {
     SDL_Palette *palette;
 
@@ -382,8 +378,9 @@ SDL_AllocPalette(int ncolors)
         SDL_OutOfMemory();
         return nullptr;
     }
-    palette->colors =
-        (SDL_Color *) SDL_malloc(ncolors * sizeof(*palette->colors));
+
+    palette->colors = (SDL_Color *) SDL_malloc(ncolors * sizeof(*palette->colors));
+
     if (!palette->colors) {
         SDL_free(palette);
         return nullptr;
@@ -445,6 +442,7 @@ int SDL_SetPaletteColors(SDL_Palette * palette, const SDL_Color * colors,
         SDL_memcpy(palette->colors + firstcolor, colors,
                    ncolors * sizeof(*colors));
     }
+
     /*
     ++palette->version;
     if (!palette->version) {

@@ -523,6 +523,10 @@ BOOL SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 	}
 	memcpy(SVidPreviousPalette, orig_palette, 1024);
 
+#ifdef __AMIGA__
+	surface = SDL_SetVideoMode(SVidWidth, SVidHeight, D_BPP, SDL_SWSURFACE | SDL_FULLSCREEN);
+#endif
+
 	// Copy frame to buffer
 	SVidSurface = SDL_CreateRGBSurfaceWithFormatFrom(
 	    (unsigned char *)smk_get_video(SVidSMK),
@@ -585,7 +589,9 @@ BOOL SVidPlayContinue(void)
 		}
 		memcpy(logical_palette, orig_palette, 1024);
 
+		//Todo(SDL1.2): Fix SDL_SetPaletteColors wrapper
 		SDL_SetPalette(SVidSurface, SDL_LOGPAL|SDL_PHYSPAL, colors, 0, 256);
+		SDL_SetColors(surface, colors, 0, 256);
 
 		if (SDL_SetPaletteColors(SVidPalette, colors, 0, 256) <= -1) {
 			SDL_Log(SDL_GetError());
@@ -614,6 +620,7 @@ BOOL SVidPlayContinue(void)
 			return false;
 		}
 	} else {
+#ifndef __AMIGA__
 		int factor;
 		int wFactor = SCREEN_WIDTH / SVidWidth;
 		int hFactor = SCREEN_HEIGHT / SVidHeight;
@@ -632,6 +639,13 @@ BOOL SVidPlayContinue(void)
 			SDL_Log(SDL_GetError());
 			return false;
 		}
+#else
+		SDL_Surface *tmp = SDL_ConvertSurfaceFormat(SVidSurface, 0, 0);
+		if (SDL_BlitSurface(tmp, NULL, surface, NULL) <= -1) {
+			SDL_Log(SDL_GetError());
+			return false;
+		}
+#endif
 		SDL_FreeSurface(tmp);
 	}
 
@@ -668,6 +682,10 @@ BOOL SVidPlayEnd(HANDLE video)
 
 	SFileCloseFile(video);
 	video = NULL;
+
+#ifdef __AMIGA__
+	surface = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, D_BPP, SDL_SWSURFACE | SDL_FULLSCREEN);
+#endif
 
 	memcpy(orig_palette, SVidPreviousPalette, 1024);
 	if (renderer) {
