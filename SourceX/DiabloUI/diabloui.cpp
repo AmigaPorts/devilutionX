@@ -263,7 +263,11 @@ bool UiFocusNavigation(SDL_Event *event)
 			return true;
 		}
 	}
-
+	
+	if (event->type == SDL_MOUSEBUTTONDOWN) {
+		UiFocusNavigationSelect();
+		return true;
+	}
 	
 	if (SDL_IsTextInputActive()) {
 		switch (event->type) {

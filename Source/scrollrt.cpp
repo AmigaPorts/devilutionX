@@ -932,6 +932,7 @@ void DrawMain(int dwHgt)
 		return;
 	}
 
+
 	/// ASSERT: assert(ysize >= 0 && ysize <= 480); // SCREEN_HEIGHT
 
 	if (ysize > 0) {
