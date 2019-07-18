@@ -488,7 +488,6 @@ void scrollrt_draw_dungeon(BYTE *pBuff, int sx, int sy, int dx, int dy)
 	if (MissilePreFlag && bFlag & BFLAG_MISSILE) {
 		DrawMissile(sx, sy, dx, dy, 1);
 	}
-
 	if (light_table_index < lightmax) {
 		if (bDead != 0) {
 			pDeadGuy = &dead[(bDead & 0x1F) - 1];
