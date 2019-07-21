@@ -196,12 +196,8 @@ TSnd *sound_file_load(char *path)
 
 	wave_file = LoadWaveFile(file, &pSnd->fmt, &pSnd->chunk);
 	if (!wave_file)
-	{
-		DUMMY();
-		printf("Invalid sound format on file %s\n", pSnd->sound_path);
-		//Todo(Amiga): Fix loading of sound files
-		//app_fatal("Invalid sound format on file %s", pSnd->sound_path);
-	}
+		app_fatal("Invalid sound format on file %s", pSnd->sound_path);
+
 	sound_CreateSoundBuffer(pSnd);
 
 	error_code = pSnd->DSB->Lock(0, pSnd->chunk.dwSize, &buf1, &size1, &buf2, &size2, 0);
