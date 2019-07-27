@@ -256,7 +256,7 @@ bool UiFocusNavigation(SDL_Event *event)
 	if (SDL_IsTextInputActive()) {
 		switch (event->type) {
 		case SDL_KEYDOWN:
-			switch (sym) {
+			switch (event->key.keysym.sym) {
 			case SDLK_v:
 				if (SDL_GetModState() & KMOD_CTRL) {
 					char *clipboard = SDL_GetClipboardText();
@@ -276,8 +276,8 @@ bool UiFocusNavigation(SDL_Event *event)
 			}
 		break;
 		case SDL_KEYUP:
-			if (sym >= SDLK_a && sym <= SDLK_z)
-				selhero_CatToName(SDL_GetKeyName(sym), UiTextInput, UiTextInputLen);
+			if (event->key.keysym.sym >= SDLK_a && event->key.keysym.sym <= SDLK_z)
+				selhero_CatToName(SDL_GetKeyName(event->key.keysym.sym), UiTextInput, UiTextInputLen);
 			return true;
 		break;
 /*
