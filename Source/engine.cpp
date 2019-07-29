@@ -1,5 +1,6 @@
 #include "diablo.h"
 #include "../3rdParty/Storm/Source/storm.h"
+#include "../3rdParty/StormLib/src/StormPort.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -88,15 +89,16 @@ void CelDecDatOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth, bool hdr, 
 		return;
 
 	pFrameTable = (DWORD *)pCelBuff;
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
 
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
+	pRLEBytes = &pCelBuff[nStart];
 	if (hdr)
-		nDataStart = *(WORD *)&pRLEBytes[0];
+		nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
 	else
 		nDataStart = 0;
 
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
-	nDataSize -= nDataStart;
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
+		nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
 
@@ -244,12 +246,11 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, ch
 		return;
 
 	pFrameTable = (DWORD *)pCelBuff;
-
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
-	nDataSize -= nDataStart;
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
+		nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
 	dst = &gpBuffer[sx + PitchTbl[sy]];
@@ -368,10 +369,11 @@ void Cel2DecodeHdrOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth, bool l
 
 	pFrameTable = (DWORD *)pCelBuff;
 
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[CelSkip]);
 
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	nDataCap = *(WORD *)&pRLEBytes[CelCap];
 	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
@@ -531,12 +533,13 @@ void Cel2DrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, c
 		return;
 
 	pFrameTable = (DWORD *)pCelBuff;
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
 	if (!nDataStart)
 		return;
 
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
 	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
@@ -596,8 +599,9 @@ void CelDecodeRect(BYTE *pBuff, int hgt, int wdt, BYTE *pCelBuff, int nCel, int 
 	DWORD *pFrameTable;
 
 	pFrameTable = (DWORD *)&pCelBuff[4 * nCel];
-	pRLEBytes = &pCelBuff[pFrameTable[0]];
-	end = &pRLEBytes[pFrameTable[1] - pFrameTable[0]];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[0]);
+	pRLEBytes =  &pCelBuff[nStart];
+	end = &pRLEBytes[BSWAP_INT32_UNSIGNED(pFrameTable[1]) - nStart];
 	dst = &pBuff[hgt * wdt];
 
 	for (; pRLEBytes != end; dst -= wdt + nWidth) {
@@ -653,10 +657,11 @@ void CelDecodeClr(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth
 	DWORD *pFrameTable;
 
 	pFrameTable = (DWORD *)&pCelBuff[4 * nCel];
-	pRLEBytes = &pCelBuff[pFrameTable[0]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[0]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
 
-	nDataSize = pFrameTable[1] - pFrameTable[0] - nDataStart;
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[1]) - nStart - nDataStart;
 
 	src = pRLEBytes + nDataStart;
 	end = &src[nDataSize];
@@ -703,10 +708,10 @@ void CelDrawHdrClrHL(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWi
 	DWORD *pFrameTable;
 
 	pFrameTable = (DWORD *)&pCelBuff[4 * nCel];
-	pRLEBytes = &pCelBuff[pFrameTable[0]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[1] - pFrameTable[0] - nDataStart;
-
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[0]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[1]) - nStart - nDataStart;
 	src = pRLEBytes + nDataStart;
 	end = &src[nDataSize];
 	dst = &gpBuffer[sx + PitchTbl[sy]];
@@ -985,8 +990,8 @@ void Cl2ApplyTrans(BYTE *p, BYTE *ttbl, int nCel)
 
 	for (i = 1; i <= nCel; i++) {
 		pFrameTable = (DWORD *)&p[4 * i];
-		dst = &p[pFrameTable[0] + 10];
-		nDataSize = pFrameTable[1] - pFrameTable[0] - 10;
+		dst = BSWAP_INT32_UNSIGNED(&p[pFrameTable[0] + 10]);
+		nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[1]) - BSWAP_INT32_UNSIGNED(pFrameTable[0] - 10);
 		while (nDataSize) {
 			width = *dst++;
 			nDataSize--;
@@ -1030,9 +1035,10 @@ void Cl2DecodeFrm1(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, bool li
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	nDataSize -= nDataStart;
 	pRLEBytes += nDataStart;
@@ -1128,9 +1134,10 @@ void Cl2DecodeFrm2(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWidt
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
 	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	Cl2DecDatFrm2(
 	    &gpBuffer[sx + PitchTbl[sy]],
@@ -1230,9 +1237,10 @@ void Cl2DecodeFrm3(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char li
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	nSize = nDataSize - nDataStart;
 	pRLEBytes += nDataStart;
@@ -1336,12 +1344,10 @@ void Cl2DecodeFrm4(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, bool hd
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	if (hdr)
-		nDataStart = *(WORD *)&pRLEBytes[0];
-	else
-		nDataStart = 0;
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	nDataSize -= nDataStart;
 	pRLEBytes += nDataStart;
@@ -1442,9 +1448,10 @@ void Cl2DecodeClrHL(char col, int sx, int sy, BYTE *pCelBuff, int nCel, int nWid
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	gpBufEnd -= BUFFER_WIDTH;
 	Cl2DecDatClrHL(
@@ -1550,9 +1557,10 @@ void Cl2DecodeFrm5(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, char li
 
 	pFrameTable = (DWORD *)pCelBuff;
 	/// ASSERT: assert(nCel <= (int) pFrameTable[0]);
-	pRLEBytes = &pCelBuff[pFrameTable[nCel]];
-	nDataStart = *(WORD *)&pRLEBytes[0];
-	nDataSize = pFrameTable[nCel + 1] - pFrameTable[nCel];
+	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
+	pRLEBytes = &pCelBuff[nStart];
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 
 	nSize = nDataSize - nDataStart;
 	pRLEBytes += nDataStart;
