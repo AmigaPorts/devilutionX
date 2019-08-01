@@ -4,6 +4,8 @@ DEVILUTION_BEGIN_NAMESPACE
 
 #define NO_OVERDRAW
 #define USE_SPEEDCELS
+#include <SDL_endian.h>
+
 
 typedef enum {
 	RT_SQUARE,

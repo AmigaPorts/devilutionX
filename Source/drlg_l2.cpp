@@ -1,4 +1,5 @@
 #include "diablo.h"
+#include "../3rdParty/StormLib/src/StormPort.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -426,10 +427,10 @@ void DRLG_L2Pass3()
 
 	lv = 12 - 1;
 
-	v1 = *((WORD *)&pMegaTiles[lv * 8]) + 1;
-	v2 = *((WORD *)&pMegaTiles[lv * 8] + 1) + 1;
-	v3 = *((WORD *)&pMegaTiles[lv * 8] + 2) + 1;
-	v4 = *((WORD *)&pMegaTiles[lv * 8] + 3) + 1;
+	v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8]) + 1);
+	v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 1) + 1);
+	v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 2) + 1);
+	v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 3) + 1);
 
 	for (j = 0; j < MAXDUNY; j += 2)
 	{
@@ -446,10 +447,10 @@ void DRLG_L2Pass3()
 		xx = 16;
 		for (i = 0; i < DMAXX; i++) {
 			lv = dungeon[i][j] - 1;
-			v1 = *((WORD *)&pMegaTiles[lv * 8]) + 1;
-			v2 = *((WORD *)&pMegaTiles[lv * 8] + 1) + 1;
-			v3 = *((WORD *)&pMegaTiles[lv * 8] + 2) + 1;
-			v4 = *((WORD *)&pMegaTiles[lv * 8] + 3) + 1;
+			v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8]) + 1);
+			v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 1) + 1);
+			v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 2) + 1);
+			v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 3) + 1);
 			dPiece[xx][yy] = v1;
 			dPiece[xx + 1][yy] = v2;
 			dPiece[xx][yy + 1] = v3;
