@@ -92,13 +92,15 @@ void SetTownMicros()
 
 	for (y = 0; y < MAXDUNY; y++) {
 		for (x = 0; x < MAXDUNX; x++) {
-			lv = (dPiece[x][y]);
-			pMap = &dpiece_defs_map_1[IsometricCoord(x, y)];
+			lv = dPiece[x][y];
+			//printf("AAA  lv= %d\n", lv); //ok
+			pMap = BSWAP_INT16_UNSIGNED(&dpiece_defs_map_1[IsometricCoord(x, y)]);
 			if (lv != 0) {
 				lv--;
-				pPiece = ((WORD *)&pLevelPieces[32 * lv]);
+				pPiece = BSWAP_INT16_UNSIGNED((WORD *)&pLevelPieces[32 * lv]);
 				for (i = 0; i < 16; i++) {
-					pMap->mt[i] = (pPiece[(i & 1) + 14 - (i & 0xE)]);
+					pMap->mt[i] = BSWAP_INT16_UNSIGNED(pPiece[(i & 1) + 14 - (i & 0xE)]);
+					//printf("AAA pMap->mt[i]= %d\n", pMap->mt[i]); //ok
 				}
 			} else {
 				for (i = 0; i < 16; i++) {
@@ -148,11 +150,10 @@ void T_FillTile(BYTE *P3Tiles, int xx, int yy, int t)
 {
 	long v1, v2, v3, v4;
 
-	v1 = *((WORD *)&P3Tiles[(t - 1) * 8]) + 1;
-	v2 = *((WORD *)&P3Tiles[(t - 1) * 8] + 1) + 1;
-	v3 = *((WORD *)&P3Tiles[(t - 1) * 8] + 2) + 1;
-	v4 = *((WORD *)&P3Tiles[(t - 1) * 8] + 3) + 1;
-
+	v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8]) + 1);
+	v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 1) + 1);
+	v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 2) + 1);
+	v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 3) + 1);
 	dPiece[xx][yy] = v1;
 	dPiece[xx + 1][yy] = v2;
 	dPiece[xx][yy + 1] = v3;
