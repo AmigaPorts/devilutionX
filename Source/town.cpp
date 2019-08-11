@@ -97,7 +97,7 @@ void SetTownMicros()
 			pMap = BSWAP_INT16_UNSIGNED(&dpiece_defs_map_1[IsometricCoord(x, y)]);
 			if (lv != 0) {
 				lv--;
-				pPiece = BSWAP_INT16_UNSIGNED((WORD *)&pLevelPieces[32 * lv]);
+				pPiece = ((WORD *)&pLevelPieces[32 * lv]);
 				for (i = 0; i < 16; i++) {
 					pMap->mt[i] = BSWAP_INT16_UNSIGNED(pPiece[(i & 1) + 14 - (i & 0xE)]);
 					//printf("AAA pMap->mt[i]= %d\n", pMap->mt[i]); //ok
@@ -124,6 +124,7 @@ void T_FillSector(BYTE *P3Tiles, BYTE *pSector, int xi, int yi, int w, int h)
 			WORD *Map;
 
 			Map = (WORD *)&pSector[ii];
+
 			if (BSWAP_INT16_UNSIGNED(*Map)) {
 				v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8]) + 1);
 				v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8] + 1) + 1);
