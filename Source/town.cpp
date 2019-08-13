@@ -93,14 +93,13 @@ void SetTownMicros()
 	for (y = 0; y < MAXDUNY; y++) {
 		for (x = 0; x < MAXDUNX; x++) {
 			lv = dPiece[x][y];
-			//printf("AAA  lv= %d\n", lv); //ok
-			pMap = BSWAP_INT16_UNSIGNED(&dpiece_defs_map_1[IsometricCoord(x, y)]);
+
+			pMap = (&dpiece_defs_map_1[IsometricCoord(x, y)]);
 			if (lv != 0) {
 				lv--;
 				pPiece = ((WORD *)&pLevelPieces[32 * lv]);
 				for (i = 0; i < 16; i++) {
 					pMap->mt[i] = BSWAP_INT16_UNSIGNED(pPiece[(i & 1) + 14 - (i & 0xE)]);
-					//printf("AAA pMap->mt[i]= %d\n", pMap->mt[i]); //ok
 				}
 			} else {
 				for (i = 0; i < 16; i++) {
@@ -122,20 +121,26 @@ void T_FillSector(BYTE *P3Tiles, BYTE *pSector, int xi, int yi, int w, int h)
 		xx = xi;
 		for (i = 0; i < w; i++) {
 			WORD *Map;
+			Map = ((WORD *)&pSector[ii]);
 
-			Map = (WORD *)&pSector[ii];
+			WORD *Sector;
+			Sector = (WORD *)&P3Tiles[(BSWAP_INT16_UNSIGNED(*Map) - 1) * 8];
+			Sector = BSWAP_INT16_UNSIGNED(*Sector);
 
 			if (BSWAP_INT16_UNSIGNED(*Map)) {
-				v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8]) + 1);
-				v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8] + 1) + 1);
-				v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8] + 2) + 1);
-				v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(*Map - 1) * 8] + 3) + 1);
+
+				v1 =  (long)Sector + 1;
+				v2 =  (long)Sector + 1 + 1;
+				v3 =  (long)Sector + 2 + 1;
+				v4 =  (long)Sector + 3 + 1;
+
 			} else {
 				v1 = 0;
 				v2 = 0;
 				v3 = 0;
 				v4 = 0;
 			}
+
 			dPiece[xx][yy] = v1;
 			dPiece[xx + 1][yy] = v2;
 			dPiece[xx][yy + 1] = v3;
@@ -151,10 +156,15 @@ void T_FillTile(BYTE *P3Tiles, int xx, int yy, int t)
 {
 	long v1, v2, v3, v4;
 
-	v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8]) + 1);
-	v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 1) + 1);
-	v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 2) + 1);
-	v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8] + 3) + 1);
+	WORD *Tiles;
+	Tiles = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8]));
+
+	v1 = (long)Tiles + 1;
+	v2 = (long)Tiles + 1 + 1;
+	v3 = (long)Tiles + 2 + 1;
+	v4 = (long)Tiles + 3 + 1;
+
+
 	dPiece[xx][yy] = v1;
 	dPiece[xx + 1][yy] = v2;
 	dPiece[xx][yy + 1] = v3;
@@ -175,17 +185,18 @@ void T_Pass3()
 		}
 	}
 
-	P3Tiles = LoadFileInMem("Levels\\TownData\\Town.TIL", NULL);
-	pSector = LoadFileInMem("Levels\\TownData\\Sector1s.DUN", NULL);
+	P3Tiles = (LoadFileInMem("Levels\\TownData\\Town.TIL", NULL));
+
+	pSector = (LoadFileInMem("Levels\\TownData\\Sector1s.DUN", NULL));
 	T_FillSector(P3Tiles, pSector, 46, 46, 25, 25);
 	mem_free_dbg(pSector);
-	pSector = LoadFileInMem("Levels\\TownData\\Sector2s.DUN", NULL);
+	pSector = (LoadFileInMem("Levels\\TownData\\Sector2s.DUN", NULL));
 	T_FillSector(P3Tiles, pSector, 46, 0, 25, 23);
 	mem_free_dbg(pSector);
-	pSector = LoadFileInMem("Levels\\TownData\\Sector3s.DUN", NULL);
+	pSector = (LoadFileInMem("Levels\\TownData\\Sector3s.DUN", NULL));
 	T_FillSector(P3Tiles, pSector, 0, 46, 23, 25);
 	mem_free_dbg(pSector);
-	pSector = LoadFileInMem("Levels\\TownData\\Sector4s.DUN", NULL);
+	pSector = (LoadFileInMem("Levels\\TownData\\Sector4s.DUN", NULL));
 	T_FillSector(P3Tiles, pSector, 0, 0, 23, 23);
 	mem_free_dbg(pSector);
 
