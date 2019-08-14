@@ -1900,10 +1900,14 @@ void DRLG_L4Pass3()
 
 	lv = 30 - 1;
 
-	v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8]) + 1);
-	v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 1) + 1);
-	v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 2) + 1);
-	v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 3) + 1);
+	WORD *MegaTiles;
+	MegaTiles = (WORD *)&pMegaTiles[lv * 8];
+	MegaTiles = BSWAP_INT16_UNSIGNED(*MegaTiles);
+
+	v1 =  (long)MegaTiles + 1;
+	v2 =  (long)MegaTiles + 1 + 1;
+	v3 =  (long)MegaTiles + 2 + 1;
+	v4 =  (long)MegaTiles + 3 + 1;
 
 	for (j = 0; j < MAXDUNY; j += 2)
 	{
@@ -1921,10 +1925,13 @@ void DRLG_L4Pass3()
 		for (i = 0; i < DMAXX; i++) {
 			lv = dungeon[i][j] - 1;
 			if (lv >= 0) {
-				v1 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8]) + 1);
-				v2 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 1) + 1);
-				v3 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 2) + 1);
-				v4 = BSWAP_INT16_UNSIGNED(*((WORD *)&pMegaTiles[lv * 8] + 3) + 1);
+				MegaTiles = (WORD *)&pMegaTiles[lv * 8];
+				MegaTiles = BSWAP_INT16_UNSIGNED(*MegaTiles);
+
+				v1 =  (long)MegaTiles + 1;
+				v2 =  (long)MegaTiles + 1 + 1;
+				v3 =  (long)MegaTiles + 2 + 1;
+				v4 =  (long)MegaTiles + 3 + 1;
 			} else {
 				v1 = 0;
 				v2 = 0;
