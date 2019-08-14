@@ -603,7 +603,6 @@ void CelDecodeRect(BYTE *pBuff, int hgt, int wdt, BYTE *pCelBuff, int nCel, int 
 	pRLEBytes =  &pCelBuff[nStart];
 	end = &pRLEBytes[BSWAP_INT32_UNSIGNED(pFrameTable[1]) - nStart];
 	dst = &pBuff[hgt * wdt];
-
 	for (; pRLEBytes != end; dst -= wdt + nWidth) {
 		for (i = nWidth; i;) {
 			width = *pRLEBytes++;
@@ -901,7 +900,7 @@ void engine_debug_trap(BOOL show_cursor)
 	sgMemCrit.Enter();
 	while(sgpMemBlock != NULL) {
 		pCurr = sgpMemBlock->pNext;
-		SMemFree(sgpMemBlock, __FILE__, __LINE__);
+		SMemFree(sgpMemBlock, "C:\\Diablo\\Direct\\ENGINE.CPP", 1970);
 		sgpMemBlock = pCurr;
 	}
 	sgMemCrit.Leave();
@@ -989,9 +988,9 @@ void Cl2ApplyTrans(BYTE *p, BYTE *ttbl, int nCel)
 	/// ASSERT: assert(ttbl != NULL);
 
 	for (i = 1; i <= nCel; i++) {
-		pFrameTable = (DWORD *)&p[4 * i];
-		dst = BSWAP_INT32_UNSIGNED(&p[pFrameTable[0] + 10]);
-		nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[1]) - BSWAP_INT32_UNSIGNED(pFrameTable[0] - 10);
+		pFrameTable = BSWAP_INT32_UNSIGNED((DWORD *)&p[4 * i]);
+		dst = &p[pFrameTable[0] + 10];
+		nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[1]) - (BSWAP_INT32_UNSIGNED(pFrameTable[0]) - 10);
 		while (nDataSize) {
 			width = *dst++;
 			nDataSize--;
