@@ -97,8 +97,8 @@ void CelDecDatOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth, bool hdr, 
 	else
 		nDataStart = 0;
 
-	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
-		nDataSize -= nDataStart;
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
+	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
 
@@ -249,8 +249,8 @@ void CelDrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, ch
 	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
 	pRLEBytes = &pCelBuff[nStart];
 	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
-	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
-		nDataSize -= nDataStart;
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
+	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
 	dst = &gpBuffer[sx + PitchTbl[sy]];
@@ -371,9 +371,9 @@ void Cel2DecodeHdrOnly(BYTE *pBuff, BYTE *pCelBuff, int nCel, int nWidth, bool l
 
 	int nStart = BSWAP_INT32_UNSIGNED(pFrameTable[nCel]);
 	pRLEBytes = &pCelBuff[nStart];
-	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[CelSkip]);
+	nDataStart = BSWAP_INT16_UNSIGNED(*(WORD *)&pRLEBytes[0]);
 
-	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	nDataCap = *(WORD *)&pRLEBytes[CelCap];
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
@@ -539,7 +539,7 @@ void Cel2DrawHdrLightRed(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth, c
 	if (!nDataStart)
 		return;
 
-	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;	if (CelCap == 8)
+	nDataSize = BSWAP_INT32_UNSIGNED(pFrameTable[nCel + 1]) - nStart;
 	nDataSize -= nDataStart;
 
 	pRLEBytes += nDataStart;
