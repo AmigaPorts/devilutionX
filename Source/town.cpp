@@ -93,11 +93,10 @@ void SetTownMicros()
 	for (y = 0; y < MAXDUNY; y++) {
 		for (x = 0; x < MAXDUNX; x++) {
 			lv = dPiece[x][y];
-
-			pMap = (&dpiece_defs_map_1[IsometricCoord(x, y)]);
+			pMap = &dpiece_defs_map_1[IsometricCoord(x, y)];
 			if (lv != 0) {
 				lv--;
-				pPiece = ((WORD *)&pLevelPieces[32 * lv]);
+				pPiece = (WORD *)&pLevelPieces[32 * lv];
 				for (i = 0; i < 16; i++) {
 					pMap->mt[i] = BSWAP_INT16_UNSIGNED(pPiece[(i & 1) + 14 - (i & 0xE)]);
 				}
@@ -120,19 +119,25 @@ void T_FillSector(BYTE *P3Tiles, BYTE *pSector, int xi, int yi, int w, int h)
 	for (j = 0; j < h; j++) {
 		xx = xi;
 		for (i = 0; i < w; i++) {
+
 			WORD *Map;
 			Map = ((WORD *)&pSector[ii]);
 
-			WORD *Sector;
-			Sector = (WORD *)&P3Tiles[(BSWAP_INT16_UNSIGNED(*Map) - 1) * 8];
-			Sector = BSWAP_INT16_UNSIGNED(*Sector);
 
-			if (BSWAP_INT16_UNSIGNED(*Map)) {
 
-				v1 =  (long)Sector + 1;
-				v2 =  (long)Sector + 1 + 1;
-				v3 =  (long)Sector + 2 + 1;
-				v4 =  (long)Sector + 3 + 1;
+			int nMap = BSWAP_INT16_UNSIGNED(*Map);
+
+
+			if (nMap) {
+
+			    WORD *Sector;
+
+				Sector = (((WORD *)&P3Tiles[(nMap - 1) * 8]));
+
+				v1 = BSWAP_INT16_UNSIGNED(*(Sector)) + 1;
+				v2 = BSWAP_INT16_UNSIGNED(*(Sector + 1)) + 1;
+				v3 = BSWAP_INT16_UNSIGNED(*(Sector + 2)) + 1;
+				v4 = BSWAP_INT16_UNSIGNED(*(Sector + 3)) + 1;
 
 			} else {
 				v1 = 0;
@@ -157,13 +162,12 @@ void T_FillTile(BYTE *P3Tiles, int xx, int yy, int t)
 	long v1, v2, v3, v4;
 
 	WORD *Tiles;
-	Tiles = BSWAP_INT16_UNSIGNED(*((WORD *)&P3Tiles[(t - 1) * 8]));
+	Tiles = ((WORD *)&P3Tiles[(t - 1) * 8]);
 
-	v1 = (long)Tiles + 1;
-	v2 = (long)Tiles + 1 + 1;
-	v3 = (long)Tiles + 2 + 1;
-	v4 = (long)Tiles + 3 + 1;
-
+	v1 = BSWAP_INT16_UNSIGNED(*(Tiles)) + 1;
+	v2 = BSWAP_INT16_UNSIGNED(*(Tiles + 1)) + 1;
+	v3 = BSWAP_INT16_UNSIGNED(*(Tiles + 2)) + 1;
+	v4 = BSWAP_INT16_UNSIGNED(*(Tiles + 3)) + 1;
 
 	dPiece[xx][yy] = v1;
 	dPiece[xx + 1][yy] = v2;
@@ -201,6 +205,7 @@ void T_Pass3()
 	mem_free_dbg(pSector);
 
 	if (gbMaxPlayers == 1) {
+
 		if (!(plr[myplr].pTownWarps & 1)) {
 			T_FillTile(P3Tiles, 48, 20, 320);
 		}
@@ -209,6 +214,7 @@ void T_Pass3()
 			T_FillTile(P3Tiles, 16, 70, 331);
 		}
 		if (!(plr[myplr].pTownWarps & 4)) {
+
 			for (x = 36; x < 46; x++) {
 				T_FillTile(P3Tiles, x, 78, random(0, 4) + 1);
 			}
