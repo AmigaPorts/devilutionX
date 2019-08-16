@@ -56,6 +56,7 @@ char *_strlwr(char *str)
 int wsprintfA(LPSTR dest, LPCSTR format, ...)
 {
 	va_list args;
+
 	va_start(args, format);
 	return vsprintf(dest, format, args);
 }

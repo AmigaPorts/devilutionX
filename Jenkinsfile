@@ -48,7 +48,7 @@ def get_libs() {
 	sh "curl -O https://www.libsdl.org/projects/SDL_ttf/release/SDL2_ttf-2.0.15.tar.gz"
 	sh "curl -SLO https://download.savannah.gnu.org/releases/freetype/freetype-2.10.1.tar.gz"
 	sh "curl -SLO https://github.com/glennrp/libpng/archive/v1.6.36.tar.gz"
-	sh "curl -SLO https://github.com/jedisct1/libsodium/archive/1.0.17.tar.gz"
+	sh "curl -SLO https://github.com/jedisct1/libsodium/archive/1.0.18.tar.gz"
 	//sh "wget https://raw.githubusercontent.com/Kitware/CMake/v3.10.0/Modules/FindFreetype.cmake -O CMake/FindFreetype.cmake"
 	sh "sudo rm -rfv CMake/FindFreetype.cmake"
 	sh "wget https://raw.githubusercontent.com/Kitware/CMake/v3.10.0/Modules/SelectLibraryConfigurations.cmake -O CMake/SelectLibraryConfigurations.cmake"
@@ -64,7 +64,7 @@ def decompress_libs() {
 	sh "tar -xvf SDL2_ttf-2.0.15.tar.gz"
 	sh "tar -xvf v1.6.36.tar.gz"
 	sh "tar -xvf freetype-2.10.1.tar.gz"
-	sh "tar -xvf 1.0.17.tar.gz"
+	sh "tar -xvf 1.0.18.tar.gz"
 }
 
 def build_zlib(TARGET, SYSROOT) {
@@ -100,11 +100,19 @@ def build_sdl2_mixer(TARGET, SYSROOT) {
 def build_libpng(TARGET, SYSROOT) {
 	echo "============= Build libpng ============="
 
+	def ZLIB_FILE = ""
+	if (SYSROOT.contains('emsdk')) {
+		ZLIB_FILE = "-DZLIB_LIBRARY:FILEPATH=${SYSROOT}/lib/libz.a -DPNG_SHARED=OFF -DPNG_BUILD_ZLIB=ON -DM_LIBRARY=\"\""
+	}
+	else {
+		ZLIB_FILE = ""
+	}
+
 	dir("libpng-1.6.36") {
 		sh "mkdir -p build"
 		sh "sudo rm -rfv build/*"
 
-		sh "cd build && cmake .. -DCMAKE_INSTALL_LIBDIR=${SYSROOT}/lib -DCMAKE_INSTALL_INCLUDEDIR=${SYSROOT}/include -DCMAKE_INSTALL_PREFIX=${SYSROOT}"
+		sh "cd build && cmake .. -DCMAKE_INSTALL_LIBDIR=${SYSROOT}/lib -DCMAKE_INSTALL_INCLUDEDIR=${SYSROOT}/include -DCMAKE_INSTALL_PREFIX=${SYSROOT} ${ZLIB_FILE}"
 		sh "cd build && cmake --build . --config Release --target install -- -j8"
 	}
 }
@@ -144,9 +152,17 @@ def build_sdl2_ttf(TARGET, SYSROOT) {
 def build_libsodium(TARGET, SYSROOT) {
 	echo "============= Build Libsodium ============="
 
-	dir("libsodium-1.0.17") {
+	def CONF_PARAMS = ""
+	if (SYSROOT.contains('emsdk')) {
+		CONF_PARAMS = "--disable-shared --disable-ssp --disable-asm --disable-pie --enable-minimal"
+	}
+	else {
+		CONF_PARAMS = "--host=${TARGET} "
+	}
+
+	dir("libsodium-1.0.18") {
 		sh "./autogen.sh"
-		sh "./configure --host=${TARGET} --prefix=${SYSROOT}"
+		sh "./configure --prefix=${SYSROOT} ${CONF_PARAMS}"
 		sh "make clean"
 		sh "make -j8"
 		sh "make install"
@@ -212,7 +228,7 @@ def buildStep(dockerImage, generator, os, defines) {
 
 				slackSend color: "good", channel: "#jenkins", message: "Starting ${os} build target..."
 				dir("build") {
-					sh "PKG_CONFIG_PATH=${SYSROOT}/lib/pkgconfig/:${SYSROOT}/share/pkgconfig/ cmake -G\"${generator}\" ${defines} -DVER_EXTRA=\"-${fixed_os}-${fixed_job_name}\" .."
+					sh "PKG_CONFIG_PATH=${SYSROOT}/lib/pkgconfig/:${SYSROOT}/share/pkgconfig/ cmake -G\"${generator}\" ${defines} -DVER_EXTRA=\"-${fixed_os}-${fixed_job_name}\" -DCMAKE_PREFIX_PATH=${SYSROOT} .. "
 					sh "VERBOSE=1 cmake --build . --config Release -- -j 8"
 
 					if (os.contains('Windows')) {
@@ -243,6 +259,7 @@ node('master') {
 	def fixed_job_name = env.JOB_NAME.replace('%2F','/')
 	slackSend color: "good", channel: "#jenkins", message: "Build Started: ${fixed_job_name} #${env.BUILD_NUMBER} (<${env.BUILD_URL}|Open>)"
 	parallel (
+		/*
 		'Win32': {
 			node {			
 				buildStep('dockcross/windows-static-x86:latest', 'Unix Makefiles', 'Windows x86', '')
@@ -267,12 +284,11 @@ node('master') {
 			node {
 				buildStep('desertbit/crossbuild:linux-armv7', 'Unix Makefiles', 'Linux RasPi', '')
 			}
-		}
-		/*,
+		},*/
 		'WebASM': {
 			node {			
 				buildStep('dockcross/web-wasm:latest', 'Unix Makefiles', 'Web assembly', '')
 			}
-		}*/
+		}
     )
 }

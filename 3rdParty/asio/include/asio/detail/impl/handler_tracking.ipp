@@ -322,8 +322,8 @@ void handler_tracking::reactor_operation(
 void handler_tracking::write_line(const char* format, ...)
 {
   using namespace std; // For sprintf (or equivalent).
-
   va_list args;
+
   va_start(args, format);
 
   char line[256] = "";
