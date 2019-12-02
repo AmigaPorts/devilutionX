@@ -1,0 +1,1 @@
+cmake  -G"Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=../m68k-amigaos.cmake -DM68K_TOOLCHAIN_PATH=/opt/amiga -DM68K_CPU=68060 -DM68K_FPU=hard .. 
