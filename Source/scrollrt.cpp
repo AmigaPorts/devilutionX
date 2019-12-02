@@ -1061,7 +1061,7 @@ static void DrawFPS()
 			frameend = 0;
 		}
 		wsprintf(String, "%d FPS", framerate);
-		PrintGameStr(8, 65, String, COL_RED);
+		PrintGameStr(8+8, 65, String, COL_RED);
 	}
 }
 
