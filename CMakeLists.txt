@@ -27,7 +27,7 @@ endif()
 
 project(DevilutionX
   VERSION ${GIT_TAG}
-  LANGUAGES C CXX)
+  LANGUAGES C CXX ASM)
 
 if(BINARY_RELEASE)
   set(CMAKE_BUILD_TYPE "Release")
@@ -309,6 +309,11 @@ if(SWITCH)
     SourceX/platform/switch/keyboard.cpp
     SourceX/platform/switch/docking.cpp)
   set(BIN_TARGET devilutionx.elf)
+endif()
+
+if(AMIGA)
+  list(APPEND devilutionx_SRCS
+    SourceX/platform/amiga/render68k.s)
 endif()
 
 add_executable(${BIN_TARGET} MACOSX_BUNDLE ${devilutionx_SRCS})

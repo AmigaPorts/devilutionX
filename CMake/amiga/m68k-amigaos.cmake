@@ -39,14 +39,11 @@ if(WIN32)
 endif()
 
 # Compiler flags
-set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage \
- -fsched-pressure -fsched-spec-load \
- -fsched-verbose=2 \
- -w -fpermissive -fomit-frame-pointer -g -noixemul")
+set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage -fsched-pressure -fsched-spec-load -fsched-verbose=2 -w -fpermissive -fomit-frame-pointer -g -noixemul")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FLAGS_COMMON}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS_COMMON} -D__BIG_ENDIAN__ -D__AMIGA__ -fpermissive")
-set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -quiet -x -m${M68K_CPU} -Fhunk -I${M68K_TOOLCHAIN_PATH}/m68k-amigaos/sys-include")
-set(CMAKE_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> <DEFINES> <INCLUDES> <FLAGS> -o <OBJECT> <SOURCE>")
+set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -quiet -x -m${M68K_CPU} -nowarn=24 -Faout -I${M68K_TOOLCHAIN_PATH}/m68k-amigaos/sys-include")
+set(CMAKE_ASM_COMPILE_OBJECT "<CMAKE_ASM_COMPILER> <DEFINES> <INCLUDES> ${CMAKE_ASM_FLAGS} -o <OBJECT> <SOURCE>")
 set(BUILD_SHARED_LIBS OFF)
 unset(FLAGS_COMMON)
 

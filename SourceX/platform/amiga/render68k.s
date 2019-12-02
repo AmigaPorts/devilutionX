@@ -18,6 +18,8 @@ BUFFER_WIDTH    set     768      ; FIXME: set the correct value here
 
     XREF    __ZN3dvl10gpBufStartE
     XREF    __ZN3dvl8gpBufEndE
+	XREF	__ZN3dvl8lightmaxE
+	XREF	__ZN3dvl17light_table_indexE
 
     cnop    0,4
 
@@ -28,7 +30,7 @@ BUFFER_WIDTH    set     768      ; FIXME: set the correct value here
 * a1 = *src
 * d0 = n    (1..32)
 * a2 = tbl
-* d1 = *mask 
+* d1 = *mask
 * d2 = scratch
 * d3 = scratch
 * CC sets according to d1 value
