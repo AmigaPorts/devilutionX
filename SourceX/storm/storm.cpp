@@ -703,7 +703,9 @@ BOOL SVidPlayContinue(void)
 		Uint32 format = SDL_GetWindowPixelFormat(window);
 		SDL_Surface *tmp = SDL_ConvertSurfaceFormat(SVidSurface, format, 0);
 #endif
-		ScaleOutputRect(&pal_surface_offset);
+#ifndef __AMIGA__
+		ScaleOutputRect(&pal_surface_offset); // somehow this lead to pb with amiga's SDL
+#endif
 		if (SDL_BlitScaled(tmp, NULL, GetOutputSurface(), &pal_surface_offset) <= -1) {
 			SDL_Log(SDL_GetError());
 			return false;
