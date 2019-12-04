@@ -6,7 +6,7 @@
 	machine	68080
 
 BUFFER_WIDTH    set     768      ; FIXME: set the correct value here
-VAMP_V4			set		0
+VAMP_V4			set		1
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -52,6 +52,7 @@ unroll_AMMX macro
 	\1
 * we can leave since there is never no more than 32 bytes
 	rts
+	
 \1_16
     btst    #4,d0
     beq     \1_8
@@ -72,7 +73,16 @@ unroll_AMMX macro
 * fixup ptrs
 \3
 	endm
-
+		
+final_mask macro
+	bfclr	d1{d0:8}
+	rol.l	#8,d1
+**	move.w	#$ff00,d3
+*	lsr.w	d0,d3
+*	rol.l	#8,d1
+*	and.w	d3,d1
+	endm
+	
 * case light_table_index == lightmax
 _RenderLine1_AMMX
     move.l  -(a3),d1
@@ -105,10 +115,7 @@ _RenderLine1_AMMX
 	storem	d2,d1,(a0)+
 	endm
 .m0	macro
-	move.w	#$ff00,d3
-	lsr.w	d0,d3
-	rol.l	#8,d1
-	and.w	d3,d1
+	final_mask
 	storem	d2,d1,(a0)
 	endm
 .mask
@@ -145,16 +152,13 @@ _RenderLine0_AMMX
 
 * version with mask
 .m8	macro
-	rol.l	#8,d1
 	load	(a1)+,d2
+	rol.l	#8,d1
 	storem  d2,d1,(a0)+
 	endm
 .m0	macro
-	move.w	#$ff00,d2
-	lsr.w	d0,d2
-	rol.l	#8,d1
-	and.w	d2,d1
 	load	(a1),d2
+	final_mask
 	storem  d2,d1,(a0)
 	endm
 .mask
@@ -172,40 +176,72 @@ _RenderLine2_AMMX
     cmp.l   a6,a0
     bhi.b   _RenderLine0_AMMX\.mx
 
+
+* here d3=0 => no need to init
+
+ ifne 0
+
 	move.l	d1,d3				; \ fused
 	addq.l	#1,d3				; /
 	bne		.mask
 
-* here d3=0 => no need to init
-	
-.transf	macro
+transform	macro
+	IFNE	\1-$AA
 	vperm	#$A7A5A3A1,d2,d3,d3
+	ENDC
+	IFNE	\1-$55
 	vperm	#$A6A4A2A0,d2,d3,d2
+	ENDC
+
+	IFNE	\1&$80
 	move.w	(a2,d2.w),d2
+	ENDC
+	IFNE	\1&$40
 	move.b	(a2,d3.w),d2
-	swap	d2
+	ENDC
+	
+	swap	d2		
 	swap	d3
+	
+	IFNE	\1&$20
 	move.w	(a2,d2.w),d2
+	ENDC
+	IFNE	\1&$10
 	move.b	(a2,d3.w),d2
+	ENDC
+	
 	vperm	#$45670123,d2,d2,d2
+	IFNE	\1-$AA
 *	lsrq	#32,d3				; doesn't compile with vasm
 	vperm	#$00000123,d3,d3,d3
+	ENDC
+	
+	IFNE	\1&$8
 	move.w	(a2,d2.w),d2
+	ENDC
+	IFNE	\1&$4
 	move.b	(a2,d3.w),d2
+	ENDC
+	
 	swap	d2
 	swap	d3
+
+	IFNE	\1&$2
 	move.w	(a2,d2.w),d2
-	move.b	(a2,d3.w),d2		; 12 cycles for 8 bytes ?
+	ENDC
+	IFNE	\1&$1
+	move.b	(a2,d3.w),d2
+	ENDC
 	endm
 	
 .n8	macro
 	load	(a1)+,d2
-	.transf
+	transform	$ff
 	store	d2,(a0)+
 	endm
 .n0	macro
 	load	(a1),d2
-	.transf
+	transform	$ff
 	storec	d2,d0,(a0)
 	endm
 	unroll_AMMX  .n8,.n0,.nx
@@ -216,25 +252,152 @@ _RenderLine2_AMMX
 * mask version
 .m8	macro
 	load	(a1)+,d2
-	.transf
+	transform	$ff
 	rol.l	#8,d1
 	storem	d2,d1,(a0)+
 	endm
 .m0	macro
 	load	(a1),d2
-	.transf
-	move.w	#$ff00,d3
-	lsr.w	d0,d3
-	rol.l	#8,d1
-	and.w	d3,d1
+	transform	$ff
+	final_mask
 	storem	d2,d1,(a0)
 	endm
 .mask
-	moveq	#0,d3
+	cmp.l	#$AAAAAAAA,d1
+	beq		.maskAA
+	cmp.l	#$55555555,d1
+	beq		.mask55
+	
 	unroll_AMMX  .m8,.m0,.mx
     add.w   d0,a1
     add.w   d0,a0
 	rts
+	
+.m8AA	macro
+	load	(a1)+,d2
+	transform	$AA
+	rol.l	#8,d1
+	storem	d2,d1,(a0)+
+	endm
+.m0AA	macro
+	load	(a1),d2
+	transform	$AA
+	final_mask
+	storem	d2,d1,(a0)
+	endm
+.maskAA
+	unroll_AMMX  .m8AA,.m0AA,.mxAA
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
+	
+.m855	macro
+	load	(a1)+,d2
+	transform	$55
+	rol.l	#8,d1
+	storem	d2,d1,(a0)+
+	endm
+.m055	macro
+	load	(a1),d2
+	transform	$55
+	final_mask
+	storem	d2,d1,(a0)
+	endm
+.mask55
+	unroll_AMMX  .m855,.m055,.mx55
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
+ else
+
+	movem.l	d4/d5,-(sp)
+	
+	move.l	d1,d3				; \ fused
+	addq.l	#1,d3				; /
+	bne		.mask
+ 
+transform	macro
+* input d3/d5	
+	move.l  d3,d2           ; p1
+	rol.l   #8,d2           ; p1      d2=BBCCDDAA
+	move.l  d5,d4          ; p2 
+	rol.l   #8,d4          ; p2 2
+	
+	and.l   #$00FF00FF,d2   ; p1      d2=00CC00AA
+	and.l   #$00FF00FF,d3  ; p2 3     d3=00BB00DD
+	and.l   #$00FF00FF,d4   ; p1
+	and.l   #$00FF00FF,d5  ; p2 4
+	swap    d3              ; p1      d3=00DD00BB
+	swap    d5             ; p2 5
+	move.w  (a2,d2.w),d2    ; p1 6    d2=00CCxx--
+	move.b  (a2,d3.w),d2    ; p1      d2=00CCxxyy
+	swap    d2             ; p2 7     d2=xxyy00CC
+	swap    d3              ; p1      d3=00BB00DD
+	move.w  (a2,d4.w),d4   ; p2 8
+	move.b  (a2,d5.w),d4    ; p1
+	swap    d4             ; p2 9
+	swap    d5              ; p1
+	move.w  (a2,d2.w),d2   ; p2 10    d2=xxyyzz--
+	move.b  (a2,d3.w),d2    ; p1 11   d2=xxyyzztt
+	move.w  (a2,d4.w),d4    ; p1 12
+	move.b  (a2,d5.w),d4    ; p1 13
+* output d2/d4
+	endm
+	
+.n8	macro
+	move.l  (a1)+,d3        ; F(used)  d3=AABBCCDD
+	move.l  (a1)+,d5        ; F  1
+	transform
+	move.l  d2,(a0)+        ; F
+	move.l  d4,(a0)+        ; F  14 ==> 14 cycles for 8 pixels ?	endm
+.zz	set		.zz+1
+	ifeq	.zz-4
+	movem.l	(sp)+,d4/d5
+	endc	
+	endm
+.n0	macro
+	move.l  (a1),d3         ; F(used)  d3=AABBCCDD
+	move.l  4(a1),d5        ; F  1
+	transform
+	vperm	#$4567CDEF,d2,d4,d2
+	storec	d2,d0,(a0)
+	endm
+.zz set		0
+	unroll_AMMX  .n8,.n0,.nx
+	movem.l	(sp)+,d4/d5
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
+
+* mask version
+.m8	macro
+	move.l  (a1)+,d3        ; F(used)  d3=AABBCCDD
+	move.l  (a1)+,d5        ; F  1
+	rol.l	#8,d1
+	transform
+	vperm	#$4567CDEF,d2,d4,d2
+	storem	d2,d1,(a0)+
+.zz	set		.zz+1
+	ifeq	.zz-4
+	movem.l	(sp)+,d4/d5
+	endc	
+	endm
+.m0	macro
+	move.l  (a1),d3         ; F(used)  d3=AABBCCDD
+	move.l  4(a1),d5        ; F  1
+	transform
+	vperm	#$4567CDEF,d2,d4,d2
+	final_mask
+	storem	d2,d1,(a0)
+	endm
+.mask
+.zz set		0
+	unroll_AMMX  .m8,.m0,.mx
+	movem.l	(sp)+,d4/d5
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
+ endc
 
 * ----------------------------------------------------------------------------------------------
 
