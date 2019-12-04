@@ -3,7 +3,10 @@
 * ----------------------------------------------------------------------------------------------
     section .text
 
+	machine	68080
+
 BUFFER_WIDTH    set     768      ; FIXME: set the correct value here
+VAMP_V4			set		0
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -15,13 +18,223 @@ BUFFER_WIDTH    set     768      ; FIXME: set the correct value here
 	XDEF    _RenderLine0
 	XDEF    _RenderLine1
 	XDEF    _RenderLine2
+	XDEF    _RenderLine0_AMMX
+	XDEF    _RenderLine1_AMMX
+	XDEF    _RenderLine2_AMMX
 
     XREF    __ZN3dvl10gpBufStartE
     XREF    __ZN3dvl8gpBufEndE
 	XREF	__ZN3dvl8lightmaxE
 	XREF	__ZN3dvl17light_table_indexE
+	XREF	_ac68080
 
     cnop    0,4
+	
+* ----------------------------------------------------------------------------------------------
+* debug: displays nothing
+	
+_RenderLine_NONE
+    move.l  -(a3),d1
+	add.w	d0,a1
+	add.w	d0,a0
+	rts
+
+* ----------------------------------------------------------------------------------------------
+* AMMX version
+
+unroll_AMMX macro
+    btst    #5,d0
+    beq     \1_16
+* 32 bytes in a row
+	\1
+	\1
+	\1
+	\1
+* we can leave since there is never no more than 32 bytes
+	rts
+\1_16
+    btst    #4,d0
+    beq     \1_8
+* 16 bytes in a row
+    \1
+    \1
+\1_8
+    btst    #3,d0
+    beq     \1_0
+* 8 bytes in a row
+    \1
+\1_0
+	moveq	#7,d2
+	and.l 	d2,d0
+	beq		\3
+* 1 to 7 bytes
+	\2
+* fixup ptrs
+\3
+	endm
+
+* case light_table_index == lightmax
+_RenderLine1_AMMX
+    move.l  -(a3),d1
+    add.w   d0,a1
+	beq.b	.nx
+    cmp.l   a5,a0
+    bcs.b   .nx
+    cmp.l   a6,a0
+    bhi.b   .nx
+
+	peor	d2,d2,d2	; d2=0.q	
+	moveq	#1,d3
+	add.l	d1,d3
+	bne		.mask
+
+* no mask
+.n8	macro
+	store	d2,(a0)+
+	endm
+.n0	macro
+	storec	d2,d0,(a0)
+	endm
+	unroll_AMMX  .n8,.n0,.nx
+    add.w   d0,a0
+	rts
+
+* mask version
+.m8	macro
+	rol.l	#8,d1
+	storem	d2,d1,(a0)+
+	endm
+.m0	macro
+	move.w	#$ff00,d3
+	lsr.w	d0,d3
+	rol.l	#8,d1
+	and.w	d3,d1
+	storem	d2,d1,(a0)
+	endm
+.mask
+	unroll_AMMX  .m8,.m0,.mx
+    add.w   d0,a0
+	rts
+
+* case light_table_index == 0
+_RenderLine0_AMMX
+    move.l  -(a3),d1
+	beq.b	.nx
+    cmp.l   a5,a0
+    bcs.b   .nx
+    cmp.l   a6,a0
+    bhi.b   .nx
+	
+	moveq	#1,d2
+	add.l	d1,d2
+	bne		.mask
+
+* no mask
+.n8	macro
+	load	(a1)+,d2
+	store	d2,(a0)+
+	endm
+.n0	macro
+	load	(a1),d2
+	storec	d2,d0,(a0)
+	endm
+	unroll_AMMX  .n8,.n0,.nx
+	add.w	d0,a1
+    add.w   d0,a0
+	rts
+
+* version with mask
+.m8	macro
+	rol.l	#8,d1
+	load	(a1)+,d2
+	storem  d2,d1,(a0)+
+	endm
+.m0	macro
+	move.w	#$ff00,d2
+	lsr.w	d0,d2
+	rol.l	#8,d1
+	and.w	d2,d1
+	load	(a1),d2
+	storem  d2,d1,(a0)
+	endm
+.mask
+	unroll_AMMX  .m8,.m0,.mx
+	add.w	d0,a1
+    add.w   d0,a0
+	rts
+
+* other cases
+_RenderLine2_AMMX
+    move.l  -(a3),d1
+	beq.b	_RenderLine0_AMMX\.mx
+    cmp.l   a5,a0
+    bcs.b   _RenderLine0_AMMX\.mx
+    cmp.l   a6,a0
+    bhi.b   _RenderLine0_AMMX\.mx
+
+	move.l	d1,d3				; \ fused
+	addq.l	#1,d3				; /
+	bne		.mask
+
+* here d3=0 => no need to init
+	
+.transf	macro
+	vperm	#$A7A5A3A1,d2,d3,d3
+	vperm	#$A6A4A2A0,d2,d3,d2
+	move.w	(a2,d2.w),d2
+	move.b	(a2,d3.w),d2
+	swap	d2
+	swap	d3
+	move.w	(a2,d2.w),d2
+	move.b	(a2,d3.w),d2
+	vperm	#$45670123,d2,d2,d2
+*	lsrq	#32,d3				; doesn't compile with vasm
+	vperm	#$00000123,d3,d3,d3
+	move.w	(a2,d2.w),d2
+	move.b	(a2,d3.w),d2
+	swap	d2
+	swap	d3
+	move.w	(a2,d2.w),d2
+	move.b	(a2,d3.w),d2		; 12 cycles for 8 bytes ?
+	endm
+	
+.n8	macro
+	load	(a1)+,d2
+	.transf
+	store	d2,(a0)+
+	endm
+.n0	macro
+	load	(a1),d2
+	.transf
+	storec	d2,d0,(a0)
+	endm
+	unroll_AMMX  .n8,.n0,.nx
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
+
+* mask version
+.m8	macro
+	load	(a1)+,d2
+	.transf
+	rol.l	#8,d1
+	storem	d2,d1,(a0)+
+	endm
+.m0	macro
+	load	(a1),d2
+	.transf
+	move.w	#$ff00,d3
+	lsr.w	d0,d3
+	rol.l	#8,d1
+	and.w	d3,d1
+	storem	d2,d1,(a0)
+	endm
+.mask
+	moveq	#0,d3
+	unroll_AMMX  .m8,.m0,.mx
+    add.w   d0,a1
+    add.w   d0,a0
+	rts
 
 * ----------------------------------------------------------------------------------------------
 
@@ -56,6 +269,7 @@ unroll macro
     \1
     \1
     \1
+	rts
 \1_4
     btst    #4,d0
     beq     \1_2
@@ -113,7 +327,7 @@ _RenderLine0
     bhi.b   _RenderLine0_
 	
 	not.l	d1
-	bne		.l1
+	bne		.mask
 .m4 macro
     move.l  (a1)+,(a0)+
     endm
@@ -125,7 +339,7 @@ _RenderLine0
     endm
     unroll  .m4,.m2,.m1
 
-.l1
+.mask
 	cmp.l	#$AAAAAAAA,d1			; bg / fg / bg fg
 	bne		.l2
 .p4	macro
@@ -210,7 +424,7 @@ _RenderLine1
     bhi.b   _RenderLine1_
 	
 	not.l	d1
-	bne		.l1
+	bne		.mask
 	
 .m4 macro
     clr.l	(a0)+
@@ -222,7 +436,7 @@ _RenderLine1
     clr.b  	(a0)+
     endm
     unroll  .m4,.m2,.m1
-.l1
+.mask
 	cmp.l	#$AAAAAAAA,d1
 	bne		.l2
 	move.l	#$FF00FF00,d2
@@ -270,9 +484,8 @@ _RenderLine2
 	moveq   #0,d2
 	moveq   #0,d3
 	
-	
 	not.l	d1
-	bne		.l1
+	bne		.mask
 .m4 macro
     move.b  (a1)+,d2		; \ merged ?
     move.b  (a1)+,d3		; / 
@@ -298,7 +511,7 @@ _RenderLine2
     endm
 	unroll  .m4,.m2,.m1
 
-.l1
+.mask
 	cmp.l	#$AAAAAAAA,d1
 	bne		.l2
 .p4	macro
@@ -349,30 +562,51 @@ _RenderLine2
 *----------------------------------------------------------------------------------------
 setup macro
 * get params from stack
-*   movem.l (4*(1+\1),sp),a0/a1/a2/a3
+	IFNE	VAMP_V4
+    movem.l (4*(1+\1),sp),a0/a1/a2/a3
+	ELSE
     move.l  (4*(1+\1),sp),a0    ; \
     move.l  (4*(2+\1),sp),a1    ; / fused
 
     move.l  (4*(3+\1),sp),a2    ; \ fused
     move.l  (4*(4+\1),sp),a3    ; /
+	ENDC
+	bsr		_setup
+	endm
 
+_setup
 * determine renderFcn
+	tst.w	_ac68080
+	bne		.ammx
 	lea		_RenderLine0(pc),a4
     move.l  __ZN3dvl17light_table_indexE,d2
     beq     .L0
     sub.b   __ZN3dvl8lightmaxE,d2
 	lea		_RenderLine2(pc),a4
     bne.b   .L0
-	lea		_RenderLine1(pc),a4
+	lea		_RenderLine1(pc),a4	
+	bra		.L0
+.ammx
+	lea		_RenderLine0_AMMX(pc),a4
+    move.l  __ZN3dvl17light_table_indexE,d2
+    beq     .L0
+    sub.b   __ZN3dvl8lightmaxE,d2
+	lea		_RenderLine2_AMMX(pc),a4
+    bne.b   .L0
+	lea		_RenderLine1_AMMX(pc),a4
+* ensure upper long word of d0 is clear, otherwise storec will overflow
+	pand	#$00000000FFFFFFFF,d0,d0
 * factorize constants in regs
 .L0
     move.l  __ZN3dvl10gpBufStartE,a5
-    addq.l  #4,a3
     move.l  __ZN3dvl8gpBufEndE,a6
-    endm
+    addq.l  #4,a3
+	rts
 
 prologue_7 macro
-*    movem.l d2-d3/a2-a6,-(sp)
+	IFNE	VAMP_V4
+    movem.l d2-d3/a2-a6,-(sp)
+	ELSE
     sub.w   #4*7,sp
     move.l  d2,4*0(sp)      ; \
     move.l  d3,4*1(sp)      ; / fused
@@ -384,23 +618,29 @@ prologue_7 macro
     move.l  a5,4*5(sp)      ; / fused
 
     move.l  a6,4*6(sp)
+	ENDC
     setup   7
     endm
 
 epilogue_7  macro
-*   movem.l (sp)+,d2-d3/a2-a3/a4-a6
+	IFNE	VAMP_V4
+    movem.l (sp)+,d2-d3/a2-a3/a4-a6
+	ELSE
     move.l  (sp)+,d2        ; \ fused
     move.l  (sp)+,d3        ; /
     move.l  (sp)+,a2        ; \ fused
     move.l  (sp)+,a3        ; /
     move.l  (sp)+,a4        ; \ fused
     move.l  (sp)+,a5        ; /
-    move.l  (sp)+,a6        ; \ fused??
-    rts                     ; /
+    move.l  (sp)+,a6
+	ENDC
+    rts
     endm
 
 prologue_11 macro
-*    movem.l d2-d7/a2-a6,-(sp)
+	IFNE	VAMP_V4
+    movem.l d2-d7/a2-a6,-(sp)
+	ELSE
     sub.w   #4*11,sp
     move.l  d2,4*0(sp)      ; \
     move.l  d3,4*1(sp)      ; / fused
@@ -418,12 +658,14 @@ prologue_11 macro
     move.l  a5,4*9(sp)      ; / fused
 
 	move.l	a6,4*10(sp)
-	
+	ENDC
     setup   11
     endm
 
 epilogue_11 macro
-*    movem.l (sp)+,d2-d7/a2-a6
+	IFNE	VAMP_V4
+    movem.l (sp)+,d2-d7/a2-a6
+	ELSE
     move.l  (sp)+,d2        ; \ fused
     move.l  (sp)+,d3        ; /
     move.l  (sp)+,d4        ; \ fused
@@ -434,8 +676,9 @@ epilogue_11 macro
     move.l  (sp)+,a3        ; /
     move.l  (sp)+,a4        ; \ fused
     move.l  (sp)+,a5        ; /
-    move.l  (sp)+,a6        ; \ fused??
-    rts                     ; /
+    move.l  (sp)+,a6
+	ENDC
+    rts
     endm
 
 *----------------------------------------------------------------------------------------
@@ -477,6 +720,9 @@ _RenderTile_RT_SQUARE
 *----------------------------------------------------------------------------------------
 
 	XDEF	block16
+	XDEF	triangL
+	XDEF	triangR
+	
 block16
 	REPT	16
 	moveq	#32,d0
@@ -515,6 +761,22 @@ triangR
 	rts
 
 *----------------------------------------------------------------------------------------
+* extern void RenderTile_RT_LTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
+_RenderTile_RT_LTRAPEZOID
+    prologue_7
+	bsr		triangL
+	bsr		block16
+    epilogue_7
+
+*----------------------------------------------------------------------------------------
+* extern void RenderTile_RT_RTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
+_RenderTile_RT_RTRAPEZOID
+    prologue_7
+	bsr		triangR
+	bsr		block16
+    epilogue_7
+	
+*----------------------------------------------------------------------------------------
 * extern void RenderTile_RT_LTRIANGLE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
 _RenderTile_RT_LTRIANGLE
     prologue_7
@@ -549,22 +811,6 @@ _RenderTile_RT_RTRIANGLE
     sub.w   #BUFFER_WIDTH+32-.i,a0
 .i	set		.i+2
 	ENDR	
-    epilogue_7
-
-*----------------------------------------------------------------------------------------
-* extern void RenderTile_RT_LTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_LTRAPEZOID
-    prologue_7
-	bsr		triangL
-	bsr		block16
-    epilogue_7
-
-*----------------------------------------------------------------------------------------
-* extern void RenderTile_RT_RTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_RTRAPEZOID
-    prologue_7
-	bsr		triangR
-	bsr		block16
     epilogue_7
 
 * end of file
