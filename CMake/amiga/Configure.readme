@@ -1,3 +1,3 @@
 export SDLDIR=/opt/amiga/m68k-amigaos/
 
-cmake  -G"Unix Makefiles" -DCMAKE_TOOLCHAIN_FILE=../CMake/amiga/m68k-amigaos.cmake -DM68K_TOOLCHAIN_PATH=/opt/amiga -DM68K_CPU=68080 -DM68K_FPU=hard .. 
+cmake  -G"Unix Makefiles" -DVAMPIRE_V2=0 -DCMAKE_TOOLCHAIN_FILE=../CMake/amiga/m68k-amigaos.cmake -DM68K_TOOLCHAIN_PATH=/opt/amiga -DM68K_CPU=68080 -DM68K_FPU=hard .. 

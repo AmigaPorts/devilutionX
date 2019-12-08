@@ -55,21 +55,37 @@ typedef struct _WSIZE
 
 struct CCritSect {
 	CRITICAL_SECTION m_critsect;
+#ifdef __AMIGA__
+	bool valid;
+#endif
 
 	CCritSect()
 	{
 		InitializeCriticalSection(&m_critsect);
+#ifdef __AMIGA__
+		valid = true;
+#endif
 	}
 	~CCritSect()
 	{
+#ifdef __AMIGA__
+		valid = false;
+#endif
 		DeleteCriticalSection(&m_critsect);
 	}
+	
 	void Enter()
 	{
+#ifdef __AMIGA__
+		if(valid)
+#endif
 		EnterCriticalSection(&m_critsect);
 	}
 	void Leave()
 	{
+#ifdef __AMIGA__
+		if(valid)
+#endif
 		LeaveCriticalSection(&m_critsect);
 	}
 };
