@@ -6,6 +6,7 @@ int light_table_index;
 DWORD sgdwCursWdtOld;
 DWORD sgdwCursX;
 DWORD sgdwCursY;
+// AMIGA important make Start first so that CMP2 works
 BYTE *gpBufStart;
 BYTE *gpBufEnd;
 DWORD sgdwCursHgt;

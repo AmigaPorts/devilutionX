@@ -14,9 +14,9 @@
 #if defined(__AMIGA__) // Add other systems that require an 8bit screen here
 extern "C"
 {
-	short ac68080_saga;
-	short ac68080_ammx;
-	int   vampire_Flip(SDL_Surface *surf);	
+	char ac68080_saga;
+	char ac68080_ammx;
+	int  vampire_Flip(SDL_Surface *surf);	
 } //extern C
 #endif
 #define SDLC_KEYSTATE_LEFTSHIFT SDLK_LSHIFT

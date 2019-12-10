@@ -28,8 +28,8 @@ extern int _ZN3dvl10fullscreenE; // diablo.h
 // extern void *_ZN3dvl6windowE;
 // extern SDL_Palette *_ZN3dvl7paletteE;
 
-short ac68080_saga = 0;
-short ac68080_ammx = 0;
+UBYTE ac68080_saga = 0;
+UBYTE ac68080_ammx = 0;
 
 static UBYTE *bufmem = NULL;
 static UBYTE started  = 0;
@@ -53,7 +53,7 @@ static void start(void)
 	atexit(stop);
 
 	if (SysBase->AttnFlags &(1 << 10)) {
-		ac68080_saga = 1; //!_ZN3dvl10fullscreenE; // disable if not fullscreen
+		ac68080_saga = 255; //!_ZN3dvl10fullscreenE; // disable if not fullscreen
 		
 		bufmem = AllocMem(3*FRAME_BUFFER_SZ + 31, MEMF_PUBLIC|MEMF_CLEAR);
 		if(!bufmem) ac68080_saga = 0;
@@ -61,7 +61,7 @@ static void start(void)
 		if(!VampireBase) VampireBase = OpenResource( V_VAMPIRENAME );
 		if(VampireBase && VampireBase->lib_Version >= 45 && 
 		   (V_EnableAMMX( V_AMMX_V2 ) != VRES_ERROR) ) {
-		   ac68080_ammx = 1;
+		   ac68080_ammx = 255;
 		}		
 		
 		printf("Vampire accelerator detected");
@@ -79,7 +79,7 @@ static void start(void)
 	}
 }
 
-int vampire_Flip(SDL_Surface *surf) 
+int vampire_Flip(SDL_Surface* const surf) 
 {
 	volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
 //	volatile ULONG *pal = (ULONG*)0xDFF400;
@@ -114,22 +114,28 @@ int vampire_Flip(SDL_Surface *surf)
 	{
 		UBYTE *ptr = surf->pixels;
 		
-		// if ptr ouside our memory
+		// if ptr ouside our memory, then use out aligned one (this is done only once per game surface)
 		if((ULONG)(ptr - bufmem) >= (ULONG)(3*FRAME_BUFFER_SZ+31)) { // ! \\ ULONG trick
+			// if not a std surface, do nothing
 			if(surf->flags & SDL_PREALLOC) goto legacy;
 			
+			// aligned memory
 			ptr = (UBYTE*)(~31&(ULONG)(bufmem + 31));
+			
+			// sync aligned memory content with current surface
 			CopyMemQuick(surf->pixels, ptr, FRAME_BUFFER_SZ);
+			
+			// replace surface pixels by our aliged memory
 			SDL_free(surf->pixels); 
-			surf->flags |= SDL_PREALLOC;
+			surf->flags |= SDL_PREALLOC; // <== tell SDL not to bother with theses pixels
 			surf->pixels = ptr;
 		}
 
 		// display
 		*dpy = ptr;
 		
-		// advance ptr
 #if ROLL_PTR
+		// advance ptr
 		ptr += FRAME_BUFFER_SZ;
 		if(ptr >= bufmem + 3*FRAME_BUFFER_SZ) ptr -= 3*FRAME_BUFFER_SZ;
 		surf->pixels = ptr;
