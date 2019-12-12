@@ -313,7 +313,8 @@ endif()
 
 if(AMIGA)
   list(APPEND devilutionx_SRCS
-    SourceX/platform/amiga/render68k.s
+    SourceX/platform/amiga/render68k.asm
+	SourceX/platform/amiga/memopt.asm
 	SourceX/platform/amiga/support.c)
 endif()
 
