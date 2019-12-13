@@ -94,11 +94,6 @@ char _smk_bs_read_1(struct smk_bit_t* bs)
 	}
 }
 
-void spy(int a,int b)
-{
-	printf("%x --> %d\n", b, a);
-}
-
 /* Reads a byte
 	Returns -1 if error. */
 short _smk_bs_read_8(struct smk_bit_t* bs)
