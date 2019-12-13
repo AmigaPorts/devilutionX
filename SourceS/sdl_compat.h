@@ -17,6 +17,8 @@ extern "C"
 	char ac68080_saga;
 	char ac68080_ammx;
 	int  vampire_Flip(SDL_Surface *surf);	
+	int  vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
+						     SDL_Surface *dst, SDL_Rect *dstRect);
 } //extern C
 #endif
 #define SDLC_KEYSTATE_LEFTSHIFT SDLK_LSHIFT

@@ -147,3 +147,47 @@ int vampire_Flip(SDL_Surface* const surf)
 legacy:
 	return SDL_Flip(surf);
 }
+
+#define min(a,b) ((a)<=(b)?(a):(b))
+
+int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
+						   SDL_Surface *dst, SDL_Rect *dstRect) 
+{
+	register UBYTE *s, *d;
+	ULONG  w;
+	WORD   h;
+	
+	// if(dst!=SDL_GetVideoSurface()) 
+		// return __real_SDL_BlitSurface(src, srcRect, dst, dstRect);
+	
+	if(!srcRect) {
+		static SDL_Rect r;
+		r.w = src->w;
+		r.h = src->h;
+		srcRect = &r;
+	}
+	if(!dstRect) {
+		static SDL_Rect r;
+		r.w = dst->w;
+		r.h = dst->h;
+		dstRect = &r;
+	}
+	
+	s = src->pixels + srcRect->x + srcRect->y*src->pitch;
+	d = dst->pixels + dstRect->x + dstRect->y*dst->pitch;
+	
+	w = min(srcRect->w, dstRect->w);
+	h = min(srcRect->h, dstRect->h);
+	
+	if(w == src->pitch && w == dst->pitch) {
+		memcpy(d, s, w*(UWORD)h);
+		return 0;
+	} 
+	
+	for(; 1 + --h;)  {
+		memcpy(d, s, w);
+		s += src->pitch;
+		d += dst->pitch;
+	}
+	return 0;
+}
