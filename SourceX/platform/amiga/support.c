@@ -16,9 +16,10 @@
 #define FRAME_BUFFER_SZ  	((SCREEN_WIDTH)*(SCREEN_HEIGHT))
 
 #define DIRTY               0		// 1 = 32 fps     0 = 29fps
+#define DIRTY               0		// 1 = 32 fps     0 = 29fps
 
 #define CHECK_FIRSTSCREEN	1		// costs 0 fps
-#define CHECK_SURFACE       0
+#define CHECK_SURFACE       1		// 0 makes random crash during video
 #define ROLL_PTR            0
 
 #include <SDL.h>
@@ -28,13 +29,15 @@ extern int _ZN3dvl10fullscreenE; // diablo.h
 // extern void *_ZN3dvl6windowE;
 // extern SDL_Palette *_ZN3dvl7paletteE;
 
+#define pal_surface _ZN3dvl11pal_surfaceE
+extern SDL_Surface *pal_surface;
+
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
 
 static UBYTE *bufmem = NULL;
 static UBYTE started  = 0;
 static struct Screen *game_screen;
-static struct SDL_Surface *game_surface;
 
 struct Library *VampireBase;
 extern struct ExecBase *SysBase;
@@ -93,12 +96,12 @@ int vampire_Flip(SDL_Surface* const surf)
 #endif
 	
 	// check if saga is on or if surface is the game surface
-	if(!ac68080_ammx) goto legacy;
+	if(!ac68080_saga) goto legacy;
 
 #if CHECK_SURFACE
-	if(surf != game_surface && surf->h == SCREEN_HEIGHT && surf->pitch<=SCREEN_HEIGHT)
-		game_surface = surf;
-	if(surf != game_surface) goto legacy;
+	// if(surf != game_surface && surf->h == SCREEN_HEIGHT && surf->pitch<=SCREEN_HEIGHT)
+		// game_surface = surf;
+	if(surf != pal_surface) goto legacy;
 #endif
 
 #if CHECK_FIRSTSCREEN
@@ -113,17 +116,20 @@ int vampire_Flip(SDL_Surface* const surf)
 #endif
 	{
 		UBYTE *ptr = surf->pixels;
-		
+
+#if CHECK_SURFACE		
+		if(0==(surf->flags & SDL_PREALLOC)) {
+#else
 		// if ptr ouside our memory, then use out aligned one (this is done only once per game surface)
 		if((ULONG)(ptr - bufmem) >= (ULONG)(3*FRAME_BUFFER_SZ+31)) { // ! \\ ULONG trick
 			// if not a std surface, do nothing
 			if(surf->flags & SDL_PREALLOC) goto legacy;
-			
+#endif		
 			// aligned memory
 			ptr = (UBYTE*)(~31&(ULONG)(bufmem + 31));
 			
 			// sync aligned memory content with current surface
-			CopyMemQuick(surf->pixels, ptr, FRAME_BUFFER_SZ);
+			memcpy(ptr, surf->pixels, FRAME_BUFFER_SZ);
 			
 			// replace surface pixels by our aliged memory
 			SDL_free(surf->pixels); 
