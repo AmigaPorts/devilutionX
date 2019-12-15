@@ -7,7 +7,8 @@
 namespace dvl {
 
 #ifdef __AMIGA__
-#define SDL_Flip         vampire_Flip
+#define SDL_Flip        	 vampire_Flip
+#define SDL_BlitSurface		vampire_BlitSurface
 // #define SDL_Flip(x)         (*(int*)0xDFF1EC = -32&(int)((x)->pixels), 0)
 #endif
 
