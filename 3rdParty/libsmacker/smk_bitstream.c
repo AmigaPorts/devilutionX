@@ -71,7 +71,11 @@ char _smk_bs_read_1(struct smk_bit_t* bs)
 	"	bne.b	.lab%=		\n"
 	"	move.l	2(a0),a1	\n"
 	"	cmp.l	6(a0),a1	\n"
+#ifdef __PROFILE__
+	"	bcc 	__smk_error	\n"
+#else
 	"	bcc.b	__smk_error	\n"
+#endif
 	"	move.w	#256,d1		\n"
 	"	move.b	(a1)+,d1	\n"
 	"	lsr.w	#1,d1		\n"
@@ -81,6 +85,7 @@ char _smk_bs_read_1(struct smk_bit_t* bs)
 	"	addx.l	d0,d0		\n"
 	: "=d" (ret) : "a" (bs_)
 	: "d1","a1","a0" );
+	return ret;
 #else
 	unsigned short ret;
 
@@ -108,7 +113,11 @@ short _smk_bs_read_8(struct smk_bit_t* bs)
 	__asm__ __volatile__ (
 	"	move.l	2(a0),a1	\n"
 	"	cmp.l	6(a0),a1	\n"
+#ifdef __PROFILE__
+	"	bcc 	__smk_error	\n"
+#else
 	"	bcc.b	__smk_error	\n"
+#endif
 	"	addq.l	#1,2(a0)	\n"
 	"	moveq	#0,d0		\n"
 	"	moveq	#1,d1		\n"

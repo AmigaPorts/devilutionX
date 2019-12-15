@@ -379,21 +379,20 @@ int _smk_huff16_lookup_rec(struct smk_bit_t* bs, unsigned short cache[3], const 
 		register unsigned long val      asm("d0");
 		register unsigned short *cache_ asm("a1") = cache;
 		__asm__ __volatile__ (
-		"	moveq	#0,d0				\n"
-		"	move.b	(6,a2),d0			\n"
+		"	moveq	#1,d0				\n"
+		"	add.b	(6,a2),d0			\n"
 		"	addq.l	#4,a2				\n"
-		"	addq.b	#1,d0				\n"
 		"	beq.b	.L1%=				\n"
 		"	lea		-2(a1,d0.w*2),a2	\n"
 		".L1%=:							\n"
 		"	move.w	(a2),d0				\n"
 		"	cmp.w	(a1),d0				\n"
 		"	beq.b	.L2%=				\n"
-		// "	move.l	(a1),2(a1)			\n"
-		// "	move.w	d0,(a1)				\n"
-		"	move.l	(a1),d1				\n"
-		"	move.w	d0,(a1)+			\n"
-		"	move.l	d1,(a1)				\n"
+		"	move.l	(a1),2(a1)			\n"
+		"	move.w	d0,(a1)				\n"
+		// "	move.l	(a1),d1				\n"
+		// "	move.w	d0,(a1)+			\n"
+		// "	move.l	d1,(a1)				\n"
 		".L2%=:							\n"
 		: "=d" (val), "=&a" (cache_), "=&a" (t_)
 		: "1"  (cache_), "2" (t_)
