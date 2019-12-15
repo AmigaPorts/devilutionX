@@ -60,7 +60,7 @@ set(BUILD_SHARED_LIBS OFF)
 unset(FLAGS_COMMON)
 
 # Linker configuration
-set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -Wl,--wrap=memcpy -lft2 -lz -noixemul -Xlinker --allow-multiple-definition ")
+set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -Wl,--wrap=memcpy -Wl,--wrap=memset -lft2 -lz -noixemul -Xlinker --allow-multiple-definition ")
 
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -ldebug ")
 # user
