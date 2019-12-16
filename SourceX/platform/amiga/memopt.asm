@@ -47,7 +47,7 @@ ___wrap_memcpy
     sub.l   d1,d0
     bcc     .l64
 .l32
-    add. l  d1,d0
+    add.l   d1,d0
     beq     .exit2
     bclr    #5,d0
     beq.b   .l16
