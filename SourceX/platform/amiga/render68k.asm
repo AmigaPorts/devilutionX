@@ -1106,26 +1106,30 @@ _RenderTile_RT_TRANSPARENT
     move.l  -(a3),d6        ; m = *mask; mask--
     moveq   #32,d4
 .L2
-    move.b  (a1)+,d5        ;  v = *src++;
-    ext.w   d5
+    moveq   #0,d0           ; TODO: remove ?
+    move.b  (a1)+,d0
     bgt.b   .L3
-    suba.w  d5,a0           ; dst += (-v)
-    neg.w   d5              ; v =-v (parallel!)
-*   bra.b   .L4
-    lsl.l   d5,d6           ; m <<= v
-    sub.w   d5,d4           ; j -= v
-    bne.b   .L2
-    sub.w   #BUFFER_WIDTH+32,a0
-    dbra    d7,.L1
-    epilogue_11
+.L22
+    neg.b   d0              ; p1
+    lsl.l   d0,d6           ; p1
+    sub.l   d0,d4           ; p2
+    adda.l  d0,a0           ; p1 doesnt affect the flags
+    beq.b   .L5             ; p2 likely be false
+    move.b  (a1)+,d0        ; p1
+    ble.b   .L22            ; p1 more likely to be false at this point
 .L3
-    move.w  d5,d0
     move.l  d6,d1
+    lsl.l   d0,d6
+    sub.l   d0,d4
+    beq     .L4             ; likely to be false most of the times
     jsr     (a4)
+    moveq   #0,d0           ; TODO: remove ?
+    move.b  (a1)+,d0
+    ble.b   .L22            ; more likely at this point
+    bra     .L3
 .L4
-    lsl.l   d5,d6           ; m <<= v
-    sub.w   d5,d4           ; j -= v
-    bne.b   .L2
+    jsr     (a4)
+.L5
     sub.w   #BUFFER_WIDTH+32,a0
     dbra    d7,.L1
     epilogue_11
