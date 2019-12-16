@@ -8,10 +8,15 @@
     machine 68080
 
     XREF    _ac68080_ammx
+    
     XREF    ___real_memcpy
     XDEF    ___wrap_memcpy
+    
     XREF    ___real_memset
     XDEF    ___wrap_memset
+    
+*   XREF    ___real_memcmp
+    XDEF    ___wrap_memcmp
 
     cnop    0,4
 
@@ -22,7 +27,7 @@ ___wrap_memcpy
 
 .memcpy
     rsreset
-      rs.l  4
+      rs.l  1
 .dst  rs.l  1
 .src  rs.l  1
 .len  rs.l  1
@@ -70,7 +75,7 @@ ___wrap_memset
 
 .memset
     rsreset
-      rs.l  4
+      rs.l  1
 .dst  rs.l  1
 .val  rs.l  1
 .len  rs.l  1
@@ -109,5 +114,49 @@ ___wrap_memset
     move.w  #$223c,.entry+6(pc) ; move.l #nnnn,d1
     move.w  #$4e75,.exit(pc)    ; #rts
     rts                         ; no need to ClearCacheU on apollo!
+
+___wrap_memcmp
+    rsreset
+      rs.l  1
+.sc1  rs.l  1
+.sc2  rs.l  1
+.len  rs.l  1
+
+    move.l  .sc1(sp),a0
+    move.l  .sc2(sp),a1
+    move.l  .len(sp),d0
+    
+.l0
+    subq.l  #8,d0
+    bcs     .l1
+    cmp.l   (a1)+,(a0)+
+    bne     .ne
+    cmp.l   (a1)+,(a0)+
+    beq     .l0
+.ne
+    bcs     .lt
+    moveq   #1,d0
+    rts
+.lt
+    moveq   #-1,d0
+    rts
+.l1
+    bclr    #2,d0
+    beq     .l2
+    cmp.l   (a1)+,(a0)+
+    bne     .ne
+.l2
+    bclr    #1,d0
+    beq     .l3
+    cmp.w   (a1)+,(a0)+
+    bne     .ne
+.l3
+    addq.l  #8,d0
+    beq     .eq
+    cmp.b   (a1)+,(a0)+
+    bne     .ne
+.eq
+    moveq   #0,d0
+    rts
 
 * end of file

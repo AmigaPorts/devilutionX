@@ -50,8 +50,8 @@ if(WIN32)
 endif()
 
 # Compiler flags
-# set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage -fsched-pressure -fsched-spec-load -fsched-verbose=2 -w -fpermissive -Dfomit-frame-pointer -pg -g -noixemul")
-set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage -fsched-pressure -fsched-spec-load -fsched-verbose=2 -w -fpermissive -fomit-frame-pointer -g -noixemul")
+set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage -fsched-pressure -fsched-spec-load -fsched-verbose=2 -w -fpermissive -Dfomit-frame-pointer -D__PROFILE__ -pg -g -noixemul")
+# set(FLAGS_COMMON "-m${M68K_CPU} -m${M68K_FPU}-float -Dfbbb=abcdefghi -Ofast -ffast-math -fdefer-pop -fcse-follow-jumps -fcse-skip-blocks -frerun-cse-after-loop -frerun-loop-opt -fregmove -ffast-math -fsingle-precision-constant -fmodulo-sched -fmodulo-sched-allow-regmoves -flive-range-shrinkage -fsched-pressure -fsched-spec-load -fsched-verbose=2 -w -fpermissive -fomit-frame-pointer -g -noixemul")
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${FLAGS_COMMON}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${FLAGS_COMMON} -D__BIG_ENDIAN__ -D__AMIGA__ -fpermissive")
 set(CMAKE_ASM_FLAGS "${CMAKE_ASM_FLAGS} -quiet -x -m${M68K_CPU} -nowarn=24 -Faout -I${M68K_TOOLCHAIN_PATH}/m68k-amigaos/sys-include ")
@@ -60,7 +60,7 @@ set(BUILD_SHARED_LIBS OFF)
 unset(FLAGS_COMMON)
 
 # Linker configuration
-set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -Wl,--wrap=memcpy -Wl,--wrap=memset -lft2 -lz -noixemul -Xlinker --allow-multiple-definition ")
+set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -Wl,--wrap=memcpy -Wl,--wrap=memset -Wl,--wrap=memcmp -lft2 -lz -noixemul -Xlinker --allow-multiple-definition ")
 
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -ldebug ")
 # user
