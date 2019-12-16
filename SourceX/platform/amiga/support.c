@@ -35,6 +35,12 @@ extern SDL_Palette *pal_palette;
 #define pal_surface _ZN3dvl11pal_surfaceE
 extern SDL_Surface *pal_surface;
 
+#define gbRunGame _ZN3dvl9gbRunGameE
+extern int gbRunGame;
+
+#define gbRunGameResult _ZN3dvl15gbRunGameResultE
+extern int gbRunGameResult;
+
 // #define sgdwCursYOld _ZN3dvl12sgdwCursYOldE
 // extern LONG sgdwCursYOld;
 
@@ -195,6 +201,16 @@ legacy:
 int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
                         SDL_Surface *dst, SDL_Rect *dstRect)
 {
+	ULONG signal = SetSignal(0,0);
+	if(signal & SIGBREAKF_CTRL_F) {
+		SetSignal(0, SIGBREAKF_CTRL_F);
+		dlmalloc_stats();
+	}
+	if(signal & SIGBREAKF_CTRL_C) {
+		SetSignal(0, SIGBREAKF_CTRL_C);
+		printf("Ctrl-C received\n");
+		gbRunGameResult = gbRunGame = 0;
+	}
     if(ok(dst)) {
         static int last_version;
         // if(srcRect==NULL || srcRect->w==SCREEN_HEIGHT) {
@@ -271,3 +287,55 @@ legacy:
     // return SDL_LowerBlit(src, srcRect, dst, dstRect);
     return SDL_BlitSurface(src, srcRect, dst, dstRect);
 }
+
+
+/*****************************************************************************/
+
+#define USE_DL_PREFIX
+#define HAVE_MORECORE 0
+
+#define HAVE_MMAP	1
+#define HAVE_MUNMAP	1
+#define MMAP_CLEARS	0
+#define HAVE_MREMAP 0
+#define LACKS_SYS_MMAN_H
+
+#define MMAP		my_mmap
+#define MUNMAP		my_munmap	
+#define DIRECT_MMAP	MMAP
+
+#define SANITY 		0
+
+static void* MMAP(size_t len)
+{
+	void *p  = malloc(len+4); // +1 to avoid contiguous
+#if SANITY
+	if(p) {
+		ULONG *q = p;
+		*q = q;
+		p = ++q;
+	}
+	printf("MMAP(%d) = %p\n", len, p);
+#endif
+	return p;
+}
+
+static int MUNMAP(void *p, size_t len)
+{
+#if SANITY
+	printf("MUNMAP(%p, %d)\n", p, len);
+	if(p) {
+		ULONG *q = p; --q;
+		if(*q == q) p = q;
+		else {
+			errno = EINVAL;
+			printf("Not MMAP!\n");
+			return -1;
+		}
+	}
+#endif
+	free(p);
+	return 0;
+}
+
+#include "malloc.c"
