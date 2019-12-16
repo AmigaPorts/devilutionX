@@ -12,6 +12,12 @@
 #ifndef SMK_MALLOC_H
 #define SMK_MALLOC_H
 
+#ifdef __AMIGA__
+#define free 	dlfree
+#define calloc 	dlcalloc
+#define malloc	dlmalloc
+#endif
+
 /* calloc */
 #include <stdlib.h>
 /* fprintf */
