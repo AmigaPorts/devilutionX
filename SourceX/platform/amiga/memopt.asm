@@ -34,20 +34,21 @@ ___wrap_memcpy
 
     move.l  .dst(sp),a1   ; p1 1
     move.l  .src(sp),a0   ; p1 2
-    move.l  .len(sp),d1   ; p1 3
+    move.l  .len(sp),d0   ; p1 3
 
-    moveq   #63,d0
-    and.l   d1,d0
-    lsr.l   #8,d1
-    beq     .l32
+    moveq   #64,d1
+    sub.l   d1,d0
+    bcs     .l32
 .l64
     REPT    8
     load    (a0)+,e0
     store   e0,(a1)+
     ENDR
-    subq.l  #1,d1
-    bne.s   .l64
+    sub.l   d1,d0
+    bcc     .l64
 .l32
+    add. l  d1,d0
+    beq     .exit2
     bclr    #5,d0
     beq.b   .l16
     REPT    4
@@ -58,7 +59,10 @@ ___wrap_memcpy
     load    (a0)+,e0
     storec   e0,d0,(a1)+
     subq.l  #8,d0
-    bhi.b   .l16
+    bcs.b   .exit2
+    load    (a0)+,e0
+    storec   e0,d0,(a1)+
+.exit2
     move.l  .dst(sp),d0
 .exit
     nop
@@ -86,17 +90,18 @@ ___wrap_memset
 
     vperm   #$77777777,d0,e0,e0
 
-    moveq   #63,d0
-    and.l   d1,d0
-    lsr.l   #8,d1
-    beq     .l32
+    moveq   #64,d1
+    sub.l   d1,d0
+    bcs     .l32
 .l64
     REPT    8
     store   e0,(a1)+
     ENDR
-    subq.l  #1,d1
-    bne.s   .l64
+    sub.l   d1,d0
+    bcc     .l64
 .l32
+    add. l  d1,d0
+    beq     .exit2
     bclr    #5,d0
     beq.b   .l16
     REPT    4
@@ -105,7 +110,9 @@ ___wrap_memset
 .l16
     storec   e0,d0,(a1)+
     subq.l  #8,d0
-    bhi.b   .l16
+    bcs.b   .exit2
+    storec   e0,d0,(a1)+
+.exit2
     move.l  .dst(sp),d0
 .exit
     nop
