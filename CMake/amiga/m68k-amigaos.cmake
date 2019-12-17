@@ -65,7 +65,7 @@ set(BUILD_SHARED_LIBS OFF)
 unset(FLAGS_COMMON)
 
 # Linker configuration
-set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -lft2 -lz -noixemul -Xlinker --allow-multiple-definition ")
+set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSDL_ttf  -lpng16 -Wl,--no-whole-archive -lft2 -lz -noixemul -Xlinker --allow-multiple-definition")
 
 # wrapper - replace gcc functions by our own
 foreach(_wrapped
@@ -74,6 +74,8 @@ foreach(_wrapped
 	memcmp)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=${_wrapped}")
 endforeach(_wrapped)
+
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} ${M68K_TOOLCHAIN_PATH}/m68k-amigaos/libnix/lib/swapstack.o")
 
 set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -ldebug ")
 # user

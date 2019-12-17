@@ -50,8 +50,8 @@ extern SDL_Surface *pal_surface;
 #define gamemenu_quit_game	_ZN3dvl18gamemenu_quit_gameEi
 extern void gamemenu_quit_game(int);
 
-#define mainmenu_restart_repintro _ZN3dvl25mainmenu_restart_repintroEv
-extern void mainmenu_restart_repintro(void);
+// #define mainmenu_restart_repintro _ZN3dvl25mainmenu_restart_repintroEv
+// extern void mainmenu_restart_repintro(void);
 
 // #define mainmenu_Esc _ZN3dvl12mainmenu_EscEv
 // extern void mainmenu_Esc(void);
@@ -80,6 +80,15 @@ static SDL_Surface   *saga_surface;
 struct Library *VampireBase;
 extern struct ExecBase *SysBase;
 extern struct IntuitionBase *IntuitionBase;
+
+/*****************************************************************************/
+/* stack requirements */
+
+#define MINSTACK (128*1024)			/* 128kb */
+#ifdef __SASC
+__near								/* sas/c */
+#endif
+size_t __stack = MINSTACK;        	/* ixemul, vbcc */
 
 /*****************************************************************************/
 /* malloc replacement */
