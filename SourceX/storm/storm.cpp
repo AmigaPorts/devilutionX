@@ -674,6 +674,15 @@ BOOL SVidPlayContinue(void)
 		}
 	} else
 #endif
+#ifdef __AMIGA__
+	// speedup get rid of SDL here
+	if(GetOutputSurface()->pitch == SVidSurface->pitch
+	&& GetOutputSurface()->h     >= SVidSurface->h) {
+		SDL_Surface *out = GetOutputSurface();
+		unsigned char *dst = out->pixels + out->pitch*((out->h - SVidSurface->h)/2);
+		memcpy(dst, SVidSurface->pixels, SVidSurface->pitch*SVidSurface->h);
+	} else 
+#endif
 	{
 		int factor;
 		int wFactor = SCREEN_WIDTH / SVidWidth;
