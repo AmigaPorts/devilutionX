@@ -361,7 +361,7 @@ int _smk_huff16_lookup_rec(struct smk_bit_t* bs, unsigned short cache[3], const 
 		__asm__ __volatile__ (
 		"	move.l	%2,-(sp)	\n"
 		".L0%=:					\n"
-		"	jsr		%3			\n"
+		"	bsr		%3			\n"
 		"	tst.b	d0			\n"
 	// TODO error ??
 		"	beq.b	.L1%=		\n"

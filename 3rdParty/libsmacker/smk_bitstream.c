@@ -77,16 +77,17 @@ char _smk_bs_read_1(struct smk_bit_t* bs)
 #else
     "   bhi.b   __smk_error \n"
 #endif
-    "   beq.b   .only_one%= \n"
-    "   moveq   #-1,d1      \n"
-    "   move.w  (a1)+,d1    \n"
-    "   ror.w   #8,d1       \n"
-    "   lsr.l   #1,d1       \n"
-    "   bra.b   .set_buf%=  \n"
+    "   bne.b   .get_two%=  \n"
     ".only_one%=:           \n"
     "   move.w  #256,d1     \n"
     "   move.b  (a1)+,d1    \n"
     "   lsr.w   #1,d1       \n"
+    "   bra.b   .set_buf%=  \n"
+    ".get_two%=:            \n"
+    "   moveq   #-1,d1      \n"
+    "   move.w  (a1)+,d1    \n"
+    "   ror.w   #8,d1       \n"
+    "   lsr.l   #1,d1       \n"
     ".set_buf%=:            \n"
     "   move.w  d1,(a0)     \n"
     "   move.l  a1,2(a0)    \n"
@@ -125,7 +126,7 @@ short _smk_bs_read_8(struct smk_bit_t* bs)
 #ifdef __mc68000__
     register unsigned char ret     asm("d0");
     register struct smk_bit_t* bs_ asm("a0") = bs;
-	
+    
     __asm__ __volatile__ (
     "   move.l  2(a0),a1    \n"
     "   cmp.l   6(a0),a1    \n"
@@ -153,7 +154,7 @@ short _smk_bs_read_8(struct smk_bit_t* bs)
     "   exg     d0,d1       \n"
     "   bra.b   .l3.%=      \n"
     ".l2.%=:                \n"
-	// yes ==> inject next byte
+    // yes ==> inject next byte
     "   addq.l  #1,2(a0)    \n"
     "   swap    d1          \n"
     "   move.w  (a1),d1     \n"
