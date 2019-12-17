@@ -3,6 +3,7 @@
  */
 
 //#include <malloc.h>
+#include <time.h>
 
 #include <dos/dos.h>
 #include <exec/exec.h>
@@ -49,6 +50,9 @@ extern SDL_Surface *pal_surface;
 #define gamemenu_quit_game	_ZN3dvl18gamemenu_quit_gameEi
 extern void gamemenu_quit_game(int);
 
+#define mainmenu_restart_repintro _ZN3dvl25mainmenu_restart_repintroEv
+extern void mainmenu_restart_repintro(void);
+
 // #define mainmenu_Esc _ZN3dvl12mainmenu_EscEv
 // extern void mainmenu_Esc(void);
 
@@ -77,6 +81,64 @@ struct Library *VampireBase;
 extern struct ExecBase *SysBase;
 extern struct IntuitionBase *IntuitionBase;
 
+/*****************************************************************************/
+/* malloc replacement */
+
+#define USE_DL_PREFIX
+
+#define SANITY_CHK			0
+
+#define lower_malloc		malloc
+#define	lower_free			free
+
+#define HAVE_MORECORE 		0
+
+#define HAVE_MMAP			1
+#define HAVE_MUNMAP			1
+#define MMAP_CLEARS			0
+#define HAVE_MREMAP 		0
+#define LACKS_SYS_MMAN_H
+
+#define MMAP				my_mmap
+#define MUNMAP				my_munmap	
+#define DIRECT_MMAP			MMAP
+
+static void* MMAP(size_t len)
+{
+	void *p  = lower_malloc(len+4); // +1 to avoid contiguous
+#if SANITY_CHK
+	if(p) {
+		ULONG *q = p;
+		*q = q;
+		p = ++q;
+	}
+	printf("MMAP(%d) = %p\n", len, p);
+#endif
+	return p;
+}
+
+static int MUNMAP(void *p, size_t len)
+{
+#if SANITY_CHK
+	printf("MUNMAP(%p, %d)\n", p, len);
+	if(p) {
+		ULONG *q = p; --q;
+		if(*q == q) p = q;
+		else {
+			errno = EINVAL;
+			printf("Not MMAP!\n");
+			return -1;
+		}
+	}
+#endif
+	lower_free(p);
+	return 0;
+}
+
+#include "malloc.c"
+
+/*****************************************************************************/
+
 static void stop(void)
 {
     if(saga_surface) {
@@ -84,7 +146,7 @@ static void stop(void)
         saga_surface = NULL;
     }
     if(bufmem) {
-        FreeMem(bufmem, 3*FRAME_BUFFER_SZ + 31);
+		dlfree(bufmem);
         bufmem = NULL;
     }
 }
@@ -93,34 +155,22 @@ static void start(void)
     started = 255;
     atexit(stop);
 
-    bufmem = AllocMem(3*FRAME_BUFFER_SZ + 31, MEMF_PUBLIC|MEMF_CLEAR);
-        if(bufmem) {
-            saga_surface = SDL_CreateRGBSurfaceFrom(
-                (UBYTE*)(~31&(31+(ULONG)bufmem)), // 32 bits alignment for saga
-                SCREEN_WIDTH, SCREEN_HEIGHT, 8, SCREEN_WIDTH,
-                0, 0, 0, 0
-            );
-            if(!saga_surface) {
-                FreeMem(bufmem, 3*FRAME_BUFFER_SZ + 31);
-                bufmem = NULL;
-            }
-        }
-
     if (SysBase->AttnFlags &(1 << 10)) {
         ac68080_saga = 255; //!_ZN3dvl10fullscreenE; // disable if not fullscreen
 
-        bufmem = AllocMem(3*FRAME_BUFFER_SZ + 31, MEMF_PUBLIC|MEMF_CLEAR);
-        if(bufmem) {
-            saga_surface = SDL_CreateRGBSurfaceFrom(
-                (UBYTE*)(~31&(31+(ULONG)bufmem)), // 32 bits alignment for saga
-                SCREEN_WIDTH, SCREEN_HEIGHT, 8, SCREEN_WIDTH,
-                0, 0, 0, 0
-            );
-            if(!saga_surface) {
-                FreeMem(bufmem, 3*FRAME_BUFFER_SZ + 31);
-                bufmem = NULL;
-            }
-        }
+        bufmem = dlmemalign(32/* byte alignment for saga */, 3*FRAME_BUFFER_SZ);
+		if(bufmem) {
+			saga_surface = SDL_CreateRGBSurfaceFrom(
+				bufmem,
+				SCREEN_WIDTH, SCREEN_HEIGHT, 8, SCREEN_WIDTH,
+				0, 0, 0, 0
+			);
+			if(!saga_surface) {
+				dlfree(bufmem);
+				bufmem = NULL;
+			}
+		}
+
         if(!bufmem) ac68080_saga = 0;
 
         if(!VampireBase) VampireBase = OpenResource( V_VAMPIRENAME );
@@ -146,27 +196,32 @@ static void start(void)
 
 static void chkSignals(void)
 {
+	static UBYTE closing;
 	ULONG signal = SetSignal(0,0);
+	if(closing) {
+		SDL_Event sdlevent;
+		sdlevent.type = SDL_KEYDOWN;
+		sdlevent.key.keysym.sym = SDLK_ESCAPE;
+		SDL_PushEvent(&sdlevent);
+		sdlevent.type = SDL_KEYUP;
+		sdlevent.key.keysym.sym = SDLK_ESCAPE;
+		SDL_PushEvent(&sdlevent);
+	}
 	if(signal & SIGBREAKF_CTRL_E) {
+		time_t t;
 		SetSignal(0, SIGBREAKF_CTRL_E);
+
+		t = time(0);
+		printf("\nMemory statistics on %s", ctime(&t));
 		dlmalloc_stats();
+		printf("\n");
 	}
 	if(signal & SIGBREAKF_CTRL_C) {
-		WORD i;
-
 		SetSignal(0, SIGBREAKF_CTRL_C);
+
 		printf("Ctrl-C received\n");
 		gamemenu_quit_game(0);
-
-		// when in menu use esc
-		for(i=5; i-->=0;) {
-			SDL_Event sdlevent;
-			sdlevent.type = SDL_KEYDOWN;
-			sdlevent.key.keysym.sym = SDLK_ESCAPE;
-			SDL_PushEvent(&sdlevent);
-		}
-		
-//		gbRunGameResult = gbRunGame = 0;
+		closing = 255;
 	}
 }
 
@@ -314,55 +369,3 @@ legacy:
     // return SDL_LowerBlit(src, srcRect, dst, dstRect);
     return SDL_BlitSurface(src, srcRect, dst, dstRect);
 }
-
-
-/*****************************************************************************/
-
-#define USE_DL_PREFIX
-#define HAVE_MORECORE 0
-
-#define HAVE_MMAP	1
-#define HAVE_MUNMAP	1
-#define MMAP_CLEARS	0
-#define HAVE_MREMAP 0
-#define LACKS_SYS_MMAN_H
-
-#define MMAP		my_mmap
-#define MUNMAP		my_munmap	
-#define DIRECT_MMAP	MMAP
-
-#define SANITY 		0
-
-static void* MMAP(size_t len)
-{
-	void *p  = malloc(len+4); // +1 to avoid contiguous
-#if SANITY
-	if(p) {
-		ULONG *q = p;
-		*q = q;
-		p = ++q;
-	}
-	printf("MMAP(%d) = %p\n", len, p);
-#endif
-	return p;
-}
-
-static int MUNMAP(void *p, size_t len)
-{
-#if SANITY
-	printf("MUNMAP(%p, %d)\n", p, len);
-	if(p) {
-		ULONG *q = p; --q;
-		if(*q == q) p = q;
-		else {
-			errno = EINVAL;
-			printf("Not MMAP!\n");
-			return -1;
-		}
-	}
-#endif
-	free(p);
-	return 0;
-}
-
-#include "malloc.c"
