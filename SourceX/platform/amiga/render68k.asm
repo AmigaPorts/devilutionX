@@ -650,7 +650,7 @@ unroll macro
     \1    0
     \1    0
     \1    1
-  rts_bounds
+    rts_bounds
 \1_4
     btst    #4,d0
     beq     \1_2
@@ -676,7 +676,7 @@ unroll macro
     beq     \3_2
     \3
 \3_2
-  rts_bounds
+    rts_bounds
     endm
 
 loop macro
