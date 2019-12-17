@@ -35,11 +35,22 @@ extern SDL_Palette *pal_palette;
 #define pal_surface _ZN3dvl11pal_surfaceE
 extern SDL_Surface *pal_surface;
 
-#define gbRunGame _ZN3dvl9gbRunGameE
-extern int gbRunGame;
+// #define gbRunGame _ZN3dvl9gbRunGameE
+// extern int gbRunGame;
 
-#define gbRunGameResult _ZN3dvl15gbRunGameResultE
-extern int gbRunGameResult;
+// #define gbRunGameResult _ZN3dvl15gbRunGameResultE
+// extern int gbRunGameResult;
+
+// #define MainMenuResult __ZN3dvl16gbProcessPlayersE
+
+// #define PressEscKey _ZN3dvl11PressEscKeyEv
+// extern int PressEscKey(void);
+
+#define gamemenu_quit_game	_ZN3dvl18gamemenu_quit_gameEi
+extern void gamemenu_quit_game(int);
+
+// #define mainmenu_Esc _ZN3dvl12mainmenu_EscEv
+// extern void mainmenu_Esc(void);
 
 // #define sgdwCursYOld _ZN3dvl12sgdwCursYOldE
 // extern LONG sgdwCursYOld;
@@ -133,6 +144,32 @@ static void start(void)
     }
 }
 
+static void chkSignals(void)
+{
+	ULONG signal = SetSignal(0,0);
+	if(signal & SIGBREAKF_CTRL_E) {
+		SetSignal(0, SIGBREAKF_CTRL_E);
+		dlmalloc_stats();
+	}
+	if(signal & SIGBREAKF_CTRL_C) {
+		WORD i;
+
+		SetSignal(0, SIGBREAKF_CTRL_C);
+		printf("Ctrl-C received\n");
+		gamemenu_quit_game(0);
+
+		// when in menu use esc
+		for(i=5; i-->=0;) {
+			SDL_Event sdlevent;
+			sdlevent.type = SDL_KEYDOWN;
+			sdlevent.key.keysym.sym = SDLK_ESCAPE;
+			SDL_PushEvent(&sdlevent);
+		}
+		
+//		gbRunGameResult = gbRunGame = 0;
+	}
+}
+
 static int ok(SDL_Surface *const surf)
 {
     if(!started) start();
@@ -149,14 +186,14 @@ int vampire_Flip(SDL_Surface* surf)
     struct Screen *first_screen;
 	static UBYTE panel_cpy_flag = 4;
 
+	chkSignals();
+	
 #if DIRTY
     *dpy = (void*)(~31&(int)surf->pixels);
     return;
 #endif
 
     if(!ok(surf)) goto legacy;
-
-    // SDL_SetColors(saga_surface, pal_palette->colors, 0, pal_palette->ncolors);
 
     surf = saga_surface;
 
@@ -201,16 +238,6 @@ legacy:
 int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
                         SDL_Surface *dst, SDL_Rect *dstRect)
 {
-	ULONG signal = SetSignal(0,0);
-	if(signal & SIGBREAKF_CTRL_F) {
-		SetSignal(0, SIGBREAKF_CTRL_F);
-		dlmalloc_stats();
-	}
-	if(signal & SIGBREAKF_CTRL_C) {
-		SetSignal(0, SIGBREAKF_CTRL_C);
-		printf("Ctrl-C received\n");
-		gbRunGameResult = gbRunGame = 0;
-	}
     if(ok(dst)) {
         static int last_version;
         // if(srcRect==NULL || srcRect->w==SCREEN_HEIGHT) {
