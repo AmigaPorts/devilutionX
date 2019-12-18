@@ -17,6 +17,10 @@
     
 *   XREF    ___real_memcmp
     XDEF    ___wrap_memcmp
+    
+    XDEF    _ConvertUInt16BufferAMMX
+    XDEF    _ConvertUInt32BufferAMMX
+    XDEF    _ConvertUInt64BufferAMMX
 
     cnop    0,4
 
@@ -165,5 +169,54 @@ ___wrap_memcmp
 .eq
     moveq   #0,d0
     rts
+    
+_ConvertUInt16BufferAMMX
+      rsreset
+      rs.l  1
+.ptr  rs.l  1
+.len  rs.l  1
 
+    move.l  .ptr(sp),a0
+    move.l  .len(sp),d0
+.loop
+    load    (a0),d1
+    vperm   #$10325476,d1,d1,d1
+    storec  d1,d0,(a0)+
+    subq.l  #8,d0
+    bhi     .loop
+    rts
+    
+
+_ConvertUInt32BufferAMMX
+      rsreset
+      rs.l  1
+.ptr  rs.l  1
+.len  rs.l  1
+
+    move.l  .ptr(sp),a0
+    move.l  .len(sp),d0
+.loop
+    load    (a0),d1
+    vperm   #$32107654,d1,d1,d1
+    storec  d1,d0,(a0)+
+    subq.l  #8,d0
+    bhi     .loop
+    rts
+    
+_ConvertUInt64BufferAMMX
+      rsreset
+      rs.l  1
+.ptr  rs.l  1
+.len  rs.l  1
+
+    move.l  .ptr(sp),a0
+    move.l  .len(sp),d0
+.loop
+    load    (a0),d1
+    vperm   #$76543210,d1,d1,d1
+    storec  d1,d0,(a0)+
+    subq.l  #8,d0
+    bhi     .loop
+    rts
+    
 * end of file
