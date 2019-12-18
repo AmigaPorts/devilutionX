@@ -49,7 +49,7 @@ error:
     return ret;
 }
 
-unsigned char _smk_error(struct smk_bit_t* bs)
+REGPARM unsigned char _smk_error(struct smk_bit_t* bs)
 {
     fprintf(stderr, "libsmacker::_smk_bs_read_?(bs=%p): ERROR: bitstream (length=%lu, ptr=%p, end=%p) exhausted.\n", bs, bs->siz, bs->ptr, bs->end_m1+1);
     bs->buf=1;
@@ -58,7 +58,7 @@ unsigned char _smk_error(struct smk_bit_t* bs)
 
 /* Reads a bit
     Returns -1 if error encountered */
-char _smk_bs_read_1(struct smk_bit_t* bs)
+REGPARM char _smk_bs_read_1(struct smk_bit_t* bs)
 {
     /* sanity check */
     //  smk_assert(bs);
@@ -118,7 +118,7 @@ char _smk_bs_read_1(struct smk_bit_t* bs)
 
 /* Reads a byte
     Returns -1 if error. */
-short _smk_bs_read_8(struct smk_bit_t* bs)
+REGPARM short _smk_bs_read_8(struct smk_bit_t* bs)
 {
     /* sanity check */
     //  smk_assert(bs);

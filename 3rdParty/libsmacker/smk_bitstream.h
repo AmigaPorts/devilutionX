@@ -15,6 +15,14 @@
 /** Bitstream structure, Forward declaration */
 struct smk_bit_t;
 
+#ifdef __AMIGA__
+#define USE_REGPARM 1
+#define REGPARM __attribute__((regparm(2)))
+#else
+#define USE_REGPARM 0
+#define REGPARM	
+#endif
+
 /* BITSTREAM Functions */
 /** Initialize a bitstream */
 struct smk_bit_t* smk_bs_init(const unsigned char* b, unsigned long size);
@@ -31,7 +39,7 @@ struct smk_bit_t* smk_bs_init(const unsigned char* b, unsigned long size);
 }
 /** Read a single bit from the bitstream, and advance.
 	Returns -1 on error. */
-char _smk_bs_read_1(struct smk_bit_t* bs);
+REGPARM char _smk_bs_read_1(struct smk_bit_t* bs);
 
 /** This macro checks return code from _smk_bs_read_8 and
 	jumps to error label if problems occur. */
@@ -45,6 +53,6 @@ char _smk_bs_read_1(struct smk_bit_t* bs);
 }
 /** Read eight bits from the bitstream (one byte), and advance.
 	Returns -1 on error. */
-short _smk_bs_read_8(struct smk_bit_t* bs);
+REGPARM short _smk_bs_read_8(struct smk_bit_t* bs);
 
 #endif

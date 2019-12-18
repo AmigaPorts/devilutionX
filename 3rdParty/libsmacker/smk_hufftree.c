@@ -103,19 +103,25 @@ short _smk_huff8_lookup(struct smk_bit_t* bs, const struct smk_huff8_t* t)
 #ifdef __mc68000__
 	if(t->b0) {
 		__asm__ __volatile__ (
+#if !USE_REGPARM
 		"	move.l	%2,-(sp)	\n"
+#else
+		"	move.l	%2,a0		\n"
+#endif
 		".L0%=:					\n"
 		"	jsr		%3			\n"
 		"	tst.b	d0			\n"
 	// TODO error ??
 		"	beq.b	.L1%=		\n"
 		"	addq.l	#4,%0		\n"
-		".L1%=:					\n"
+	".L1%=:					\n"
 		"	move.l	(%0),%0		\n"
 		"	tst.l	(%0)		\n"
 		"	bne.b	.L0%=		\n"
+#if !USE_REGPARM
 		"	addq.l	#4,sp		\n"
-		: "=&a" (t) 
+#endif
+			: "=&a" (t) 
 		: "0" (t), "am" (bs), "m" (_smk_bs_read_1) 
 		: "d0","d1","a0","a1");
 	}
@@ -353,13 +359,18 @@ error:
 	return NULL;
 }
 
+static inline
 int _smk_huff16_lookup_rec(struct smk_bit_t* bs, unsigned short cache[3], const struct smk_huff8_t* t)
 {
 #ifdef __mc68000__
 	register struct smk_huff8_t *t_ asm("a2") = t;
 	if(t_->b0) {
 		__asm__ __volatile__ (
+#if !USE_REGPARM
 		"	move.l	%2,-(sp)	\n"
+#else
+		"	move.l	%2,a0		\n"
+#endif
 		".L0%=:					\n"
 		"	bsr		%3			\n"
 		"	tst.b	d0			\n"
@@ -370,7 +381,9 @@ int _smk_huff16_lookup_rec(struct smk_bit_t* bs, unsigned short cache[3], const 
 		"	move.l	(a2),a2		\n"
 		"	tst.l	(a2)		\n"
 		"	bne.b	.L0%=		\n"
+#if !USE_REGPARM
 		"	addq.l	#4,sp		\n"
+#endif
 		: "=&a" (t_) 
 		: "0" (t_), "am" (bs), "m" (_smk_bs_read_1) 
 		: "d0","d1","a0","a1");
