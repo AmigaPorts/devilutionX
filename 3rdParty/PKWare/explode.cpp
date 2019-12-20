@@ -28,7 +28,7 @@ static char CopyrightPkware[] = "PKWARE Data Compression Library for Win32\r\n"
                                 "PKWARE Data Compression Library Reg. U.S. Pat. and Tm. Off.\r\n"
                                 "Version 1.11\r\n";
 
-#fidef __AMIGA__
+#ifdef __AMIGA__
 // pass values in d0/d1 regs for speedup
 #define static static __attribute__ ((regparam(2)))
 #endif
