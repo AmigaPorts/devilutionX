@@ -28,8 +28,10 @@ static char CopyrightPkware[] = "PKWARE Data Compression Library for Win32\r\n"
                                 "PKWARE Data Compression Library Reg. U.S. Pat. and Tm. Off.\r\n"
                                 "Version 1.11\r\n";
 
-//#define static __attribute__ ((noinline,regparam(2)))
+#fidef __AMIGA__
+// pass values in d0/d1 regs for speedup
 #define static static __attribute__ ((regparam(2)))
+#endif
 
 //-----------------------------------------------------------------------------
 // Tables
