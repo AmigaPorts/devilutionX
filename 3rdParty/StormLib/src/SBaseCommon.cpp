@@ -313,6 +313,14 @@ DWORD HashStringLower(const char * szFileName, DWORD dwHashType)
 // If the value is already a power of two, returns the same value
 DWORD GetNearestPowerOfTwo(DWORD dwFileCount)
 {
+#ifdef __mc68000__
+	DWORD ret = 1;
+	__asm__ __volatile__(
+	"	bfffo	%1{0:31},%1	\n"
+	"	bfins	%0,%0{0:%1}	\n"
+	: "+d" (ret), "+d" (dwFileCount) : );
+	return ret;
+#else
     dwFileCount --;
 
     dwFileCount |= dwFileCount >> 1;
@@ -322,6 +330,7 @@ DWORD GetNearestPowerOfTwo(DWORD dwFileCount)
     dwFileCount |= dwFileCount >> 16;
 
     return dwFileCount + 1;
+#endif
 }
 /*
 DWORD GetNearestPowerOfTwo(DWORD dwFileCount)

@@ -103,7 +103,7 @@ chk_bounds macro
     else
       ifne  USE_CMP2
         cmp2.l  __ZN3dvl10gpBufStartE,a0
-        bcs.b \1
+        bcs.b   \1
       else
         cmp.l   a5,a0  ; 1
         bcs.b   \1     ; 2

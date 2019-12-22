@@ -195,12 +195,47 @@ _ConvertUInt32BufferAMMX
 
     move.l  .ptr(sp),a0
     move.l  .len(sp),d0
-.loop
+    
+    movem.l d2/d3,-(sp)    
+    move.l  a0,a1
+    moveq   #64,d1
+    sub.l   d1,d0
+    bcs     .l32
+.l64
+    REPT    8
+    movex.l (a0)+,d2
+    movex.l (a0)+,d3
+    move.l  d2,(a1)+
+    move.l  d3,(a1)+
+    ENDR
+    sub.l   d1,d0
+    bcc     .l64
+.l32
+    add.l   d1,d0
+    beq     .exit2
+    bclr    #5,d0
+    beq.b   .l16
+    REPT    4
+    movex.l (a0)+,d2
+    movex.l (a0)+,d3
+    move.l  d2,(a1)+
+    move.l  d3,(a1)+
+    ENDR
+.l16
+    bclr    #4,d0
+    beq.b   .l8
+    REPT    4
+    movex.l (a0)+,d2
+    movex.l (a0)+,d3
+    move.l  d2,(a1)+
+    move.l  d3,(a1)+
+    ENDR
+.l8
     load    (a0),d1
     vperm   #$32107654,d1,d1,d1
     storec  d1,d0,(a0)+
-    subq.l  #8,d0
-    bhi     .loop
+.exit2
+    movem.l (sp)+,d2/d3
     rts
     
 _ConvertUInt64BufferAMMX
