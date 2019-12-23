@@ -1875,10 +1875,10 @@ uint64_t SwapUInt64( uint64_t val )
 
 #ifdef __AMIGA__
 extern "C" {
-	char ac68080_ammx;
-	void ConvertUInt16BufferAMMX(void * ptr, size_t length);
-	void ConvertUInt32BufferAMMX(void * ptr, size_t length);
-	void ConvertUInt64BufferAMMX(void * ptr, size_t length);
+	extern char ac68080_ammx;
+	extern void ConvertUInt16BufferAMMX(void * ptr, size_t length);
+	extern void ConvertUInt32BufferAMMX(void * ptr, size_t length);
+	extern void ConvertUInt64BufferAMMX(void * ptr, size_t length);
 };
 #endif
 

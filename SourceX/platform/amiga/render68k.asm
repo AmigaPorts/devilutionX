@@ -1,16 +1,16 @@
 * -----------------------------------------------------------------------------
 * render68k.asm -- replacement of C code by hand-written asm code by S.Devulder
 * -----------------------------------------------------------------------------
-    section .text
-
     machine 68080
+
+    section .text
 
 BUFFER_WIDTH    set     768
 VAMP_V4         set     1   ; 0 = replaces movem with separate moves
 NO_OVERDRAW     set     1   ; 1 = tests for out of screen drawings (0=crash)
 A5_RELATIVE     set     1   ; 1 = faster out of bounds tests (AMMX)
 USE_CMP2        set     0   ; 1 = uses CMP2 (might be faster on 68K)
-USE_BANK        set     1   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
+USE_BANK        set     0   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -36,7 +36,7 @@ USE_BANK        set     1   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
     XREF    __ZN3dvl8lightmaxE
     XREF    __ZN3dvl17light_table_indexE
     XREF    _ac68080_ammx
-
+    
     cnop    0,4
 
 * sanity
@@ -142,30 +142,27 @@ rol_d1_mask macro
     endm
 
 unroll_AMMX macro
-    btst    #5,d0
+    bclr    #5,d0
     beq     \1_16
 * 32 bytes in a row
     \1      0
     \1      0
     \1      0
     \1      1
-  rts_bounds
+    rts_bounds
 \1_16
-    btst    #4,d0
+    bclr    #4,d0
     beq     \1_8
 * 16 bytes in a row
     \1      0
     \1      0
 \1_8
-    btst    #3,d0
+    bclr    #3,d0
     beq     \1_0
 * 8 bytes in a row
     \1      0
 \1_0
-    moveq   #7,d2
-    and.l   d2,d0
-    beq     \3
-* 1 to 7 bytes
+* 0 to 7 bytes
     \2
 * fixup ptrs
 \3
@@ -320,7 +317,6 @@ transform   macro
 *   move.l  d4,(a0)+        ; F  14 ==> 14 cycles for 8 pixels ?
   endm
 
-
 push_d4_d5  macro
   ifeq  USE_BANK
     movem.l d4/d5,-(sp)
@@ -370,30 +366,31 @@ _RenderLine2_AMMX
     add.w   d0,a1
     rts_bounds
 
-* mask version
+* mask versions
 
 .transfAA55_8 macro
-    moveq   #0,d2
     move.b  \1(a1),d2               ; 1
-    moveq   #0,d3
     move.b  \1+2(a1),d3             ; 2
-    bank    0,1,moveq,#0,d4
     bank    0,1,move.b,\1+4(a1),d4  ; 3
-    bank    0,1,moveq,#0,d5
     bank    0,1,move.b,\1+6(a1),d5  ; 4
-    addq    #8,a0                   ; 4
-    addq.l  #8,a1
-    move.w  (a2,d2.w),d2            ; 5
-    move.b  (a2,d3.w),d2            ; 6
-    swap    d2                      ; 7
-    bank    1,0,move.w,(a2,d4.w),d2 ; 8
-    bank    1,0,move.b,(a2,d5.w),d2 ; 9
-    movep.l d2,\1-9(a0)             ; 10
+    addq.l  #8,a0                   ; 4
+    addq.l  #8,a1                   ; 5
+    move.w  (a2,d2.w),d1            ; 5
+    move.b  (a2,d3.w),d1            ; 6
+    swap    d1                      ; 7
+    bank    1,0,move.w,(a2,d4.w),d1 ; 8
+    bank    1,0,move.b,(a2,d5.w),d1 ; 9
+    movep.l d1,\1-8(a0)             ; 10
   endm
 
 .transfAA55 macro
-    btst    #5,d0
-    bne     .b4\2
+    moveq   #0,d2
+    moveq   #0,d3
+    bank    0,1,moveq,#0,d4
+    bank    0,1,moveq,#0,d5
+    
+    bclr    #5,d0
+    beq     .b4\2
     .transfAA55_8 \1
     .transfAA55_8 \1
     .transfAA55_8 \1
@@ -401,58 +398,60 @@ _RenderLine2_AMMX
     pull_d4_d5
     rts_bounds
 .b4\2
-    btst    #4,d0
-    bne     .b3\2
+    bclr    #4,d0
+    beq.b   .b3\2
     .transfAA55_8 \1
     .transfAA55_8 \1
 .b3\2
-    btst    #3,d0
-    bne     .b2\2
+    bclr    #3,d0
+    beq.b   .b2\2
     .transfAA55_8 \1
 .b2\2
     pull_d4_d5
-    btst    #2,d0
-    bne     .b1\2
-    moveq   #0,d2
+    bclr    #2,d0
+    beq.b   .b1\2
     move.b  \1(a1),d2     ; 1
-    moveq   #0,d3
     move.b  \1+2(a1),d3   ; 2
     addq.l  #4,a0         ; 2
     addq.l  #4,a1         ; 3
-    move.w  (a2,d2.w),d2  ; 3+1
-    move.b  (a2,d3.w),d2  ; 5
-    movep.w d2,\1-5(a0)   ; 6
+    move.w  (a2,d2.w),d1  ; 3+1
+    move.b  (a2,d3.w),d1  ; 5
+    movep.w d1,\1-4(a0)   ; 6
 .b1\2
-    btst    #1,d0
-    bne     .b0\2
-    moveq   #0,d2
+    bclr    #1,d0
+    beq.b   .b0\2
     move.b  \1(a1),d2     ; 1
     addq.l  #2,a0
     addq.l  #2,a1         ; 2
 ; 2 bubbles
-    move.b  (a2,d2.w),d2  ; 4
-    move.b  d2,\1(a0)     ; 5
+    move.b  (a2,d2.w),d1  ; 4
+    move.b  d1,\1-2(a0)   ; 5
 .b0\2
-  ifne  \1
-    addq.l  #1,a0
-    addq.l  #1,a1
-  else
+  ifeq  \1
+    tst.b   d0
+    beq.b   .bb0\2
     move.b  (a1)+,(a0)+
+.bb0\2
+  else
+    add.w   d0,a0
+    add.w   d0,a1
   endc
     rts_bounds
   endm
-
-.mask
-    cmp.l   #$AAAAAAAA,d1
-    bne     .mask1
+  
+.maskAA
     .transfAA55   0,_aa
 
-.mask1
-    cmp.l   #$55555555,d1
-    bne   .mask2
+.mask55
     .transfAA55   1,_55
 
-.mask2
+
+.mask
+    move.l  #$AAAAAAAA,d3
+    eor.l   d1,d3
+    beq     .maskAA    
+    not.l   d3
+    beq     .mask55
 
 .m8 macro
     move.l  (a1)+,d3        ; F(used)  d3=AABBCCDD
@@ -473,11 +472,14 @@ _RenderLine2_AMMX
     vperm   #$4567CDEF,d2,d4,d2
     storem  d2,d1,(a0)
     endm
+
+.maskXX
     unroll_AMMX  .m8,.m0,.mx
     pull_d4_d5
     add.w   d0,a0
     add.w   d0,a1
     rts_bounds
+    
 
 * -----------------------------------------------------------------------------
 
@@ -640,8 +642,8 @@ inc_a0_a1 macro
     endm
 
 unroll macro
-    btst    #5,d0
-    beq     \1_4
+    bclr  #5,d0
+    beq   \1_4
     \1    0
     \1    0
     \1    0
@@ -652,28 +654,28 @@ unroll macro
     \1    1
     rts_bounds
 \1_4
-    btst    #4,d0
-    beq     \1_2
+    bclr  #4,d0
+    beq   \1_2
     \1    0
     \1    0
     \1    0
     \1    0
 \1_2
-    btst    #3,d0
-    beq     \1_1
+    bclr  #3,d0
+    beq   \1_1
     \1    0
     \1    0
 \1_1
-    btst    #2,d0
-    beq     \2_1
+    bclr  #2,d0
+    beq   \2_1
     \1    0
 \2_1
-    btst    #1,d0
-    beq     \3_1
+    bclr #1,d0
+    beq  \3_1
     \2
 \3_1
-    btst    #0,d0
-    beq     \3_2
+    tst.b d0
+    beq   \3_2
     \3
 \3_2
     rts_bounds
@@ -886,15 +888,15 @@ _RenderLine2
 .p4 macro
     move.b  1(a1),d2
     move.b  3(a1),d3
-    move.b  (a2,d2.w),1(a0)
-    move.b  (a2,d3.w),3(a0)
     addq.l  #4,a1
+    move.b  (a2,d2.w),1(a0)
     addq.l  #4,a0
+    move.b  (a2,d3.w),-1(a0)
     endm
 .p2 macro
     move.b  1(a1),d2
-    move.b  (a2,d2.w),1(a0)
     addq.l  #2,a1
+    move.b  (a2,d2.w),1(a0)
     addq.l  #2,a0
     endm
 .p1 macro
@@ -908,15 +910,15 @@ _RenderLine2
 .q4 macro
     move.b  (a1),d2
     move.b  2(a1),d3
-    move.b  (a2,d2.w),(a0)
-    move.b  (a2,d3.w),2(a0)
     addq.l  #4,a1
+    move.b  (a2,d2.w),(a0)
     addq.l  #4,a0
+    move.b  (a2,d3.w),-2(a0)
     endm
 .q2 macro
     move.b  (a1),d2
-    move.b  (a2,d2.l),(a0)
     addq.l  #2,a1
+    move.b  (a2,d2.l),(a0)
     addq.l  #2,a0
     endm
 .q1 macro
@@ -951,10 +953,40 @@ setup macro
     bsr     _setup
     endm
 
+  xdef  _setup
+
 _setup
+  ifne  NO_OVERDRAW
+   ifeq  USE_CMP2
+    move.l  __ZN3dvl10gpBufStartE,a5
+    move.l  __ZN3dvl8gpBufEndE,a6
+   endc
+   ifne  A5_RELATIVE
+    sub.l   a5,a0
+    sub.l   a5,a6
+   endc
+  endc
+    addq.l  #4,a3
 * determine renderFcn
+.ammx
     tst.b   _ac68080_ammx
-    bne     .ammx
+    beq.b   .m68k
+
+    lea     _RenderLine0_AMMX(pc),a4
+    move.l  __ZN3dvl17light_table_indexE,d2
+    beq.b   .exit
+    sub.b   __ZN3dvl8lightmaxE,d2
+    lea     _RenderLine2_AMMX(pc),a4
+    bne.b   .exit
+    lea     _RenderLine1_AMMX(pc),a4
+.exit
+* remove initial comparison so that it now only costs 1 cycle
+    move.w  #$203c,.ammx       ; move.l #nnnn,d0
+    move.w  #$7200,.ammx+6     ; moveq  #0,d1
+    move.w  #$4e75,.exit       ; #rts
+    rts                        ; no need to ClearCacheU on apollo!
+
+.m68k
     lea     _RenderLine0(pc),a4
     move.l  __ZN3dvl17light_table_indexE,d2
     beq     .L0
@@ -962,29 +994,9 @@ _setup
     lea     _RenderLine2(pc),a4
     bne.b   .L0
     lea     _RenderLine1(pc),a4
-    bra     .L0
-.ammx
-    lea     _RenderLine0_AMMX(pc),a4
-    move.l  __ZN3dvl17light_table_indexE,d2
-    beq     .L0
-    sub.b   __ZN3dvl8lightmaxE,d2
-    lea     _RenderLine2_AMMX(pc),a4
-    bne.b   .L0
-    lea     _RenderLine1_AMMX(pc),a4
 .L0
-  ifne  NO_OVERDRAW
-    ifeq  USE_CMP2
-      move.l  __ZN3dvl10gpBufStartE,a5
-      move.l  __ZN3dvl8gpBufEndE,a6
-    endc
-    ifne  A5_RELATIVE
-      sub.l   a5,a0
-      sub.l   a5,a6
-    endc
-  endc
-    addq.l  #4,a3
     rts
-
+    
 prologue_7 macro
 .size set 7
     ifeq SAVE_A5A6

@@ -14,10 +14,10 @@
 #if defined(__AMIGA__) // Add other systems that require an 8bit screen here
 extern "C"
 {
-	char ac68080_saga;
-	char ac68080_ammx;
-	int  vampire_Flip(SDL_Surface *surf);	
-	int  vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
+	extern char ac68080_saga;
+	extern char ac68080_ammx;
+	extern int  vampire_Flip(SDL_Surface *surf);	
+	extern int  vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
 						     SDL_Surface *dst, SDL_Rect *dstRect);
 } //extern C
 #endif

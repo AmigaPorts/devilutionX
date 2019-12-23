@@ -315,7 +315,7 @@ if(AMIGA)
   list(APPEND devilutionx_SRCS
     SourceX/platform/amiga/render68k.asm
 	SourceX/platform/amiga/memopt.asm
-	SourceX/platform/amiga/support.c)
+	SourceX/platform/amiga/ac68080_support.c)
 endif()
 
 add_executable(${BIN_TARGET} MACOSX_BUNDLE ${devilutionx_SRCS})

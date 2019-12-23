@@ -66,6 +66,10 @@ void ClearCursor() // CODE_FIX: this was supposed to be in cursor.cpp
 	sgdwCursWdtOld = 0;
 }
 
+#ifdef __AMIGA__
+#define static static __attribute__((regparm(2)))
+#endif
+
 /**
  * @brief Remove the cursor from the backbuffer
  */
@@ -468,6 +472,35 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag);
 
 static void drawRow(int x, int y, int sx, int sy, int eflag)
 {
+#ifdef __mc68000__ // this code is better for 68k
+	BYTE *dst;
+	MICROS *pMap;
+	WORD *mt;
+	
+	level_piece_id = dPiece[x][y];
+	light_table_index = dLight[x][y];
+
+	dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
+	pMap = &dpiece_defs_map_2[x][y];
+	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
+	
+	mt = &pMap->mt[0];
+	arch_draw_type = 1;
+	level_cel_block = *mt++;
+	if (level_cel_block != 0) drawUpperScreen(dst);
+	arch_draw_type = 2;
+	level_cel_block = *mt++;
+	if (level_cel_block != 0) drawUpperScreen(dst + 32);
+	arch_draw_type = 0;
+	for(WORD i = MicroTileLen>>1; --i>0;) {
+		dst -= BUFFER_WIDTH * 32;
+		level_cel_block = *mt++;
+		if (level_cel_block != 0) drawUpperScreen(dst);
+		level_cel_block = *mt++;
+		if (level_cel_block != 0) drawUpperScreen(dst + 32);
+	}
+	
+#else
 	BYTE *dst;
 	MICROS *pMap;
 
@@ -490,7 +523,7 @@ static void drawRow(int x, int y, int sx, int sy, int eflag)
 		}
 		dst -= BUFFER_WIDTH * 32;
 	}
-
+#endif
 	scrollrt_draw_dungeon(x, y, sx, sy, eflag);
 }
 

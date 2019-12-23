@@ -70,6 +70,7 @@ extern void gamemenu_quit_game(int);
 
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
+
 static USHORT copy_pane_mask = 0;
 
 static UBYTE *bufmem = NULL;
@@ -159,11 +160,12 @@ static void stop(void)
         bufmem = NULL;
     }
 }
+
 static void start(void)
 {
     started = 255;
     atexit(stop);
-
+	
     if (SysBase->AttnFlags &(1 << 10)) {
         ac68080_saga = 255; //!_ZN3dvl10fullscreenE; // disable if not fullscreen
 
@@ -196,7 +198,7 @@ static void start(void)
             }
             if(ac68080_ammx) {
                 if(ac68080_saga) printf(" &");
-                printf(" AMMX2");
+                printf(" AMMX");
             }
         }
         printf(".\n");
