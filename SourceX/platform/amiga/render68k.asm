@@ -10,7 +10,7 @@ VAMP_V4         set     1   ; 0 = replaces movem with separate moves
 NO_OVERDRAW     set     1   ; 1 = tests for out of screen drawings (0=crash)
 A5_RELATIVE     set     1   ; 1 = faster out of bounds tests (AMMX)
 USE_CMP2        set     0   ; 1 = uses CMP2 (might be faster on 68K)
-USE_BANK        set     0   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
+USE_BANK        set     1   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -256,7 +256,7 @@ transform   macro
   endc
   ifne  \1&$0a
     bank  1,1,move.l,d5,d4           ; p2
-    bank  1,1,rol.l,#8,d4            ; p2 2
+    bank  0,1,rol.l,#8,d4            ; p2 2
   endc
   ifne  \1&$a0
     and.l #$00FF00FF,d2   ; p1      d2=00CC00AA
@@ -265,16 +265,16 @@ transform   macro
     and.l #$00FF00FF,d3   ; p2 3    d3=00BB00DD
   endc
   ifne  \1&$0a
-    bank  1,1,and.l,#$00FF00FF,d4   ; p1
+    bank  0,1,and.l,#$00FF00FF,d4   ; p1
   endc
   ifne  \1&$05
-    bank  1,1,and.l,#$00FF00FF,d5   ; p2 4
+    bank  0,1,and.l,#$00FF00FF,d5   ; p2 4
   endc
   ifne  \1&$50
     swap  d3              ; p1      d3=00DD00BB
   endc
   ifne  \1&$05
-    bank  1,1,swap,d5              ; p2 5
+    bank  0,1,swap,d5              ; p2 5
   endc
   ifne  \1&$80
     move.w  (a2,d2.w),d2    ; p1 6    d2=00CCxx--
@@ -295,10 +295,10 @@ transform   macro
     bank  1,1,move.b,(a2,d5.w),d4    ; p1
   endc
   ifne  \1&$0a
-    bank  1,1,swap,d4              ; p2 9
+    bank  0,1,swap,d4              ; p2 9
   endc
   ifne  \1&$05
-    bank  1,1,swap,d5              ; p1
+    bank  0,1,swap,d5              ; p1
   endc
   ifne    \1&$20
     move.w  (a2,d2.w),d2    ; p2 10   d2=xxyyzz--
@@ -357,7 +357,11 @@ _RenderLine2_AMMX
     move.l  (a1),d3
     bank    0,1,move.l,4(a1),d5
     transform   $ff
+    ifne USE_BANK
+    vperm   #$4567CDEF,d2,e4,d2
+    else
     vperm   #$4567CDEF,d2,d4,d2
+    endc
     storec  d2,d0,(a0)
   endm
     unroll_AMMX  .n8,.n0,.nx
@@ -455,10 +459,14 @@ _RenderLine2_AMMX
 
 .m8 macro
     move.l  (a1)+,d3        ; F(used)  d3=AABBCCDD
-    move.l  (a1)+,d5        ; F  1
+    bank    0,1,move.l,(a1)+,d5        ; F  1
     rol.l   #8,d1
     transform   $ff
+    ifne USE_BANK
+    vperm   #$4567CDEF,d2,e4,d2
+    else
     vperm   #$4567CDEF,d2,d4,d2
+    endc
     storem  d2,d1,(a0)+
     ifne    \1
     pull_d4_d5
@@ -466,10 +474,14 @@ _RenderLine2_AMMX
     endm
 .m0 macro
     move.l  (a1),d3         ; F(used)  d3=AABBCCDD
-    move.l  4(a1),d5        ; F  1
+    bank    0,1,move.l,4(a1),d5        ; F  1
     rol_d1_mask
     transform   $ff
+    ifne USE_BANK
+    vperm   #$4567CDEF,d2,e4,d2
+    else
     vperm   #$4567CDEF,d2,d4,d2
+    endc
     storem  d2,d1,(a0)
     endm
 
