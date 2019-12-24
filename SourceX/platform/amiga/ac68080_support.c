@@ -71,7 +71,7 @@ extern void gamemenu_quit_game(int);
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
 
-static USHORT copy_pane_mask = 0;
+static volatile USHORT copy_pane_mask = 0;
 
 static UBYTE *bufmem = NULL;
 static UBYTE started  = 0;
@@ -236,8 +236,9 @@ static void chkSignals(void)
 	}
 }
 
-static int ok(SDL_Surface *const surf)
+static __attribute__((noinline)) int ok(SDL_Surface *const surf)
 {
+	chkSignals();
     if(!started) start();
     if(!ac68080_saga) return 0;
     if(surf!=SDL_GetVideoSurface()) return 0;
@@ -251,8 +252,6 @@ int vampire_Flip(SDL_Surface* surf)
 //  volatile ULONG *pal = (ULONG*)0xDFF400;
     struct Screen *first_screen;
 	static UBYTE panel_cpy_flag = 4;
-
-	chkSignals();
 	
 #if DIRTY
     *dpy = (void*)(~31&(int)surf->pixels);
@@ -288,12 +287,14 @@ int vampire_Flip(SDL_Surface* surf)
             ptr += FRAME_BUFFER_SZ;
         surf->pixels = ptr;
 		
-        if(copy_pane_mask) {
-			copy_pane_mask >>= 1;
+        // if(copy_pane_mask) {
+			// copy_pane_mask >>= 1;
+		asm goto ("lsr.w %0\n\tbeq.s %l1" : : "m"(copy_pane_mask) : : skip);
 			memcpy(ptr + PANEL_TOP*SCREEN_WIDTH, 
 		           old + PANEL_TOP*SCREEN_WIDTH, 
 				   PANEL_HEIGHT*SCREEN_WIDTH);
-		}
+		// }
+		skip: (void)0;
 #endif
     }
     return 0;
@@ -316,7 +317,7 @@ int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
             // return ret;
         // }
 		if(srcRect 
-		&& srcRect->w < SCREEN_WIDTH			// ignore full screen
+		// && srcRect->w < SCREEN_WIDTH			// ignore full screen
 		&& !(srcRect->w==288 && srcRect->h==60) // ignore descpane
 		&& srcRect->y + srcRect->h >= PANEL_TOP + SCREEN_Y
 		)	copy_pane_mask = 4; // we need to copy 3 times the panel if something was drawn there
