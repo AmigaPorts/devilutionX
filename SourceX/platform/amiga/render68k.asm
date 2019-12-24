@@ -10,7 +10,6 @@ VAMP_V4         set     1   ; 0 = replaces movem with separate moves
 NO_OVERDRAW     set     1   ; 1 = tests for out of screen drawings (0=crash)
 A5_RELATIVE     set     1   ; 1 = faster out of bounds tests (AMMX)
 USE_CMP2        set     0   ; 1 = uses CMP2 (might be faster on 68K)
-USE_BANK        set     1   ; uses E4/E5 in place of D4/D5 in Render2_AMMX
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -57,7 +56,6 @@ SAVE_A5A6   set 1
 
 
 bank macro
-  ifne  USE_BANK
     inline
 .aa equ   *
     dc.w    (%0111000100000000+((\1)*%100)+(\2)+((.bb)*%1000000))
@@ -68,13 +66,6 @@ bank macro
   endc
 .bb equ   (*-.aa-4)>>1
     einline
-  else
-    ifb   \5
-      \3    \4
-    else
-      \3    \4,\5
-    endc
-  endc
   endm
 
 * -----------------------------------------------------------------------------
@@ -253,52 +244,52 @@ transform   macro
   ifne  \1&$a0
     move.l  d3,d2           ; p1      d3=AABBCCDD
     rol.l   #8,d2           ; p1      d2=BBCCDDAA
-  endc
-  ifne  \1&$0a
-    bank  1,1,move.l,d5,d4           ; p2
-    bank  0,1,rol.l,#8,d4            ; p2 2
-  endc
-  ifne  \1&$a0
-    and.l #$00FF00FF,d2   ; p1      d2=00CC00AA
-  endc
-  ifne  \1&$50
-    and.l #$00FF00FF,d3   ; p2 3    d3=00BB00DD
-  endc
-  ifne  \1&$0a
-    bank  0,1,and.l,#$00FF00FF,d4   ; p1
-  endc
-  ifne  \1&$05
-    bank  0,1,and.l,#$00FF00FF,d5   ; p2 4
-  endc
-  ifne  \1&$50
-    swap  d3              ; p1      d3=00DD00BB
-  endc
-  ifne  \1&$05
-    bank  0,1,swap,d5              ; p2 5
-  endc
-  ifne  \1&$80
+  endc  
+  ifne  \1&$0a  
+    move.l  d5,d4           ; p2
+    rol.l   #8,d4           ; p2 2
+  endc  
+  ifne  \1&$a0  
+    and.l #$00FF00FF,d2     ; p1      d2=00CC00AA
+  endc  
+  ifne  \1&$50  
+    and.l #$00FF00FF,d3     ; p2 3    d3=00BB00DD
+  endc  
+  ifne  \1&$0a  
+    and.l #$00FF00FF,d4     ; p1
+  endc  
+  ifne  \1&$05  
+    and.l #$00FF00FF,d5     ; p2 4
+  endc  
+  ifne  \1&$50  
+    swap  d3                ; p1      d3=00DD00BB
+  endc  
+  ifne  \1&$05  
+    swap  d5                ; p2 5
+  endc  
+  ifne  \1&$80  
     move.w  (a2,d2.w),d2    ; p1 6    d2=00CCxx--
-  endc
-  ifne    \1&$40
+  endc  
+  ifne    \1&$40  
     move.b  (a2,d3.w),d2    ; p1      d2=00CCxxyy
-  endc
-  ifne  \1&$a0
-    swap  d2              ; p2 7    d2=xxyy00CC
-  endc
-  ifne  \1&$50
-    swap  d3              ; p1      d3=00BB00DD
-  endc
-  ifne  \1&$08
-    bank  1,1,move.w,(a2,d4.w),d4    ; p2 8
-  endc
-  ifne  \1&$04
-    bank  1,1,move.b,(a2,d5.w),d4    ; p1
-  endc
-  ifne  \1&$0a
-    bank  0,1,swap,d4              ; p2 9
+  endc  
+  ifne  \1&$a0  
+    swap  d2                ; p2 7    d2=xxyy00CC
+  endc  
+  ifne  \1&$50  
+    swap  d3                ; p1      d3=00BB00DD
+  endc  
+  ifne  \1&$08  
+    move.w  (a2,d4.w),d4    ; p2 8
+  endc  
+  ifne  \1&$04  
+    move.b  (a2,d5.w),d4    ; p1
+  endc  
+  ifne  \1&$0a  
+    swap  d4                ; p2 9
   endc
   ifne  \1&$05
-    bank  0,1,swap,d5              ; p1
+    swap  d5                ; p1
   endc
   ifne    \1&$20
     move.w  (a2,d2.w),d2    ; p2 10   d2=xxyyzz--
@@ -307,37 +298,19 @@ transform   macro
     move.b  (a2,d3.w),d2    ; p1 11   d2=xxyyzztt
   endc
   ifne    \1&$02
-    bank  1,1,move.w,(a2,d4.w),d4    ; p1 12
+    move.w  (a2,d4.w),d4    ; p1 12
   endc
   ifne    \1&$01
-    bank  1,1,move.b,(a2,d5.w),d4    ; p1 13
+    move.b  (a2,d5.w),d4    ; p1 13
   endc
 * output d2/d4
 *   move.l  d2,(a0)+        ; F
 *   move.l  d4,(a0)+        ; F  14 ==> 14 cycles for 8 pixels ?
   endm
 
-push_d4_d5  macro
-  ifeq  USE_BANK
-    movem.l d4/d5,-(sp)
-  endc
-  endm
-pull_d4_d5  macro
-  ifeq  USE_BANK
-   ifne  VAMP_V4
-    movem.l (sp)+,d4/d5
-   else
-    move.l  (sp)+,d4
-    move.l  (sp)+,d5
-   endc
-  endc
-  endm
-
 _RenderLine2_AMMX
     move.l  -(a3),d1
     chk_bounds  _RenderLine0_AMMX\.mx
-
-    push_d4_d5
 
     move.l  d1,d3               ; \ fused
     addq.l  #1,d3               ; /
@@ -345,27 +318,19 @@ _RenderLine2_AMMX
 
 .n8 macro
     move.l  (a1)+,d3
-    bank  0,1,move.l,(a1)+,d5
+    move.l  (a1)+,d5
     transform   $ff
     move.l  d2,(a0)+
-    bank  1,0,move.l,d4,(a0)+
-    ifne    \1
-      pull_d4_d5
-    endc
+    move.l  d4,(a0)+
   endm
 .n0 macro
     move.l  (a1),d3
-    bank    0,1,move.l,4(a1),d5
+    move.l  (a1),d5
     transform   $ff
-    ifne USE_BANK
-    vperm   #$4567CDEF,d2,e4,d2
-    else
     vperm   #$4567CDEF,d2,d4,d2
-    endc
     storec  d2,d0,(a0)
   endm
     unroll_AMMX  .n8,.n0,.nx
-    pull_d4_d5
     add.w   d0,a0
     add.w   d0,a1
     rts_bounds
@@ -375,23 +340,23 @@ _RenderLine2_AMMX
 .transfAA55_8 macro
     move.b  \1(a1),d2               ; 1
     move.b  \1+2(a1),d3             ; 2
-    bank    0,1,move.b,\1+4(a1),d4  ; 3
-    bank    0,1,move.b,\1+6(a1),d5  ; 4
+    move.b  \1+4(a1),d4             ; 3
+    move.b  \1+6(a1),d5             ; 4
     addq.l  #8,a0                   ; 4
     addq.l  #8,a1                   ; 5
     move.w  (a2,d2.w),d1            ; 5
     move.b  (a2,d3.w),d1            ; 6
     swap    d1                      ; 7
-    bank    1,0,move.w,(a2,d4.w),d1 ; 8
-    bank    1,0,move.b,(a2,d5.w),d1 ; 9
+    move.w  (a2,d4.w),d1            ; 8
+    move.b  (a2,d5.w),d1            ; 9
     movep.l d1,\1-8(a0)             ; 10
   endm
 
 .transfAA55 macro
     moveq   #0,d2
     moveq   #0,d3
-    bank    0,1,moveq,#0,d4
-    bank    0,1,moveq,#0,d5
+    moveq   #0,d4
+    moveq   #0,d5
     
     bclr    #5,d0
     beq     .b4\2
@@ -399,7 +364,6 @@ _RenderLine2_AMMX
     .transfAA55_8 \1
     .transfAA55_8 \1
     .transfAA55_8 \1
-    pull_d4_d5
     rts_bounds
 .b4\2
     bclr    #4,d0
@@ -411,7 +375,6 @@ _RenderLine2_AMMX
     beq.b   .b2\2
     .transfAA55_8 \1
 .b2\2
-    pull_d4_d5
     bclr    #2,d0
     beq.b   .b1\2
     move.b  \1(a1),d2     ; 1
@@ -449,7 +412,6 @@ _RenderLine2_AMMX
 .mask55
     .transfAA55   1,_55
 
-
 .mask
     move.l  #$AAAAAAAA,d3
     eor.l   d1,d3
@@ -459,35 +421,23 @@ _RenderLine2_AMMX
 
 .m8 macro
     move.l  (a1)+,d3        ; F(used)  d3=AABBCCDD
-    bank    0,1,move.l,(a1)+,d5        ; F  1
+    move.l  (a1)+,d5        ; F  1
     rol.l   #8,d1
     transform   $ff
-    ifne USE_BANK
-    vperm   #$4567CDEF,d2,e4,d2
-    else
     vperm   #$4567CDEF,d2,d4,d2
-    endc
     storem  d2,d1,(a0)+
-    ifne    \1
-    pull_d4_d5
-    endc
     endm
 .m0 macro
     move.l  (a1),d3         ; F(used)  d3=AABBCCDD
-    bank    0,1,move.l,4(a1),d5        ; F  1
+    move.l  4(a1),d5        ; F  1
     rol_d1_mask
     transform   $ff
-    ifne USE_BANK
-    vperm   #$4567CDEF,d2,e4,d2
-    else
     vperm   #$4567CDEF,d2,d4,d2
-    endc
     storem  d2,d1,(a0)
     endm
 
 .maskXX
     unroll_AMMX  .m8,.m0,.mx
-    pull_d4_d5
     add.w   d0,a0
     add.w   d0,a1
     rts_bounds
@@ -954,14 +904,6 @@ setup macro
     move.l  (4*(3+\1),sp),a2    ; \ fused
     move.l  (4*(4+\1),sp),a3    ; /
     ENDC
-    ifne    USE_BANK
-    inline
-    tst.b   _ac68080_ammx
-    beq   .1
-    bank  0,1,move.l,a2,a2
-.1
-    einline
-    endc
     bsr     _setup
     endm
 
@@ -1125,10 +1067,11 @@ epilogue_11 macro
 _RenderTile_RT_TRANSPARENT
     prologue_11
     addq.l  #2,a4           ; skip over load mask
-    moveq   #31,d7
+    REPT  32
+    inline
 .L1
     move.l  -(a3),d6        ; m = *mask; mask--
-    moveq   #32,d4
+    moveq   #32,d7
 .L2
     moveq   #0,d0           ; TODO: remove ?
     move.b  (a1)+,d0
@@ -1136,7 +1079,7 @@ _RenderTile_RT_TRANSPARENT
 .L22
     neg.b   d0              ; p1
     lsl.l   d0,d6           ; p1
-    sub.l   d0,d4           ; p2
+    sub.l   d0,d7           ; p2
     adda.l  d0,a0           ; p1 doesnt affect the flags
     beq.b   .L5             ; p2 likely be false
     move.b  (a1)+,d0        ; p1
@@ -1144,7 +1087,7 @@ _RenderTile_RT_TRANSPARENT
 .L3
     move.l  d6,d1
     lsl.l   d0,d6
-    sub.l   d0,d4
+    sub.l   d0,d7
     beq     .L4             ; likely to be false most of the times
     jsr     (a4)
     moveq   #0,d0           ; TODO: remove ?
@@ -1155,7 +1098,8 @@ _RenderTile_RT_TRANSPARENT
     jsr     (a4)
 .L5
     sub.w   #BUFFER_WIDTH+32,a0
-    dbra    d7,.L1
+    einline
+    ENDR
     epilogue_11
 
 *------------------------------------------------------------------------------------
