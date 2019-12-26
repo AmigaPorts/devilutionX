@@ -71,9 +71,9 @@ extern void gamemenu_quit_game(int);
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
 
-static volatile USHORT copy_pane_mask = 0;
+static USHORT copy_pane_mask = 0;
 
-static UBYTE *bufmem = NULL;
+static UBYTE *bufmem = NULL, *bufmem_roll;
 static UBYTE started  = 0;
 static struct Screen *game_screen;
 static SDL_Surface   *saga_surface;
@@ -157,7 +157,7 @@ static void stop(void)
     }
     if(bufmem) {
 		dlfree(bufmem);
-        bufmem = NULL;
+        bufmem_roll = bufmem = NULL;
     }
 }
 
@@ -179,6 +179,8 @@ static void start(void)
 			if(!saga_surface) {
 				dlfree(bufmem);
 				bufmem = NULL;
+			} else {
+				bufmem_roll  = bufmem + 2*FRAME_BUFFER_SZ;
 			}
 		}
 
@@ -205,7 +207,7 @@ static void start(void)
     }
 }
 
-static void chkSignals(void)
+static __attribute__((noinline)) void doChkSignals(void)
 {
 	static UBYTE closing;
 	ULONG signal = SetSignal(0,0);
@@ -236,31 +238,56 @@ static void chkSignals(void)
 	}
 }
 
-static __attribute__((noinline)) int ok(SDL_Surface *const surf)
+static void chkSignals(void)
 {
-	chkSignals();
-    if(!started) start();
-    if(!ac68080_saga) return 0;
-    if(surf!=SDL_GetVideoSurface()) return 0;
-    if(surf->w != SCREEN_WIDTH || surf->h != SCREEN_HEIGHT) return 0;
-    return 1;
+	static UBYTE closing, ctr;
+	if(!ctr) {
+		ctr = 4;
+		doChkSignals();
+	} else {
+		--ctr;
+	}
 }
 
-int vampire_Flip(SDL_Surface* surf)
+static __attribute__((noinline, regparm(2))) int ok(SDL_Surface *surf)
+{
+	int t;
+    if(!started) start();
+    if(!ac68080_saga) return 0;
+	// always true
+    // if(surf!=SDL_GetVideoSurface()) return 0;
+    return surf->w == SCREEN_WIDTH && surf->h == SCREEN_HEIGHT ? -1 : 0;
+}
+
+int vampire_Flip(const SDL_Surface* surf)
 {
     volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
 //  volatile ULONG *pal = (ULONG*)0xDFF400;
     struct Screen *first_screen;
 	static UBYTE panel_cpy_flag = 4;
+
+	chkSignals();
 	
 #if DIRTY
     *dpy = (void*)(~31&(int)surf->pixels);
     return;
 #endif
 
-    if(!ok(surf)) goto legacy;
+#define USE_ASM 1
 
-    surf = saga_surface;
+#if USE_ASM
+	// a bit risky as it assumes nothing is pushed on stack
+	// before this point, but I better like this code than
+	// the one from gcc
+	__asm__ __volatile__(
+	"	move.l	4(sp),a0	\n"
+	"	bsr.w	_ok			\n"
+	"	tst.l	d0			\n"
+	"	beq.l	_SDL_Flip	\n"
+	: : : "d0", "a0");
+#else
+    if(!ok(surf)) return SDL_Flip(surf);
+#endif
 
 #if CHECK_FIRSTSCREEN
     // check if screen has changed
@@ -273,33 +300,61 @@ int vampire_Flip(SDL_Surface* surf)
     if(first_screen == game_screen)
 #endif
     {
-        UBYTE *ptr = surf->pixels, *old;
+        register UBYTE *ptr asm("a0") = saga_surface->pixels;
+		register LONG dlt = -FRAME_BUFFER_SZ;
 
         // display
         *dpy = ptr;
 
 #if ROLL_PTR
-        old = ptr;
+#if USE_ASM
+		__asm__ __volatile(
+		"	cmpa.l	%2,%0					\n"
+		"	bne.s	.l1%=					\n"
+		"	move.l	%6,%1					\n"
+		".l1%=:								\n"
+		"	suba.l	%1,%0					\n"
+		"	move.l	%0,%3					\n"
+		"	adda.l	%7,%0					\n"
+		"	lsr.w	%4						\n"
+		"	beq		.l2%=					\n"
+//		"	pea		%8						\n"
+//		"	pea		(%0,%1.l)				\n"
+//		"	pea		(%0)					\n"
+//		"	bsr		%5						\n"
+//		"	add.w	#12,sp					\n"
+		"	lea		(%0,%1.l),a1			\n"
+		"	move.l	%8,d0					\n"
+		".l3%=:								\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	move.l	(a1)+,(%0)+				\n"
+		"	subq.l	#1,d0					\n"
+		"	bne.s	.l3%=					\n"
+		".l2%=:								\n"
+		: "+a"(ptr), "+d"(dlt)
+		: "m" (bufmem_roll), "m" (saga_surface->pixels), 
+		  "m" (copy_pane_mask), "m"(memcpy),
+		  "i"(2*FRAME_BUFFER_SZ), "i"(PANEL_TOP*SCREEN_WIDTH), "i" (PANEL_HEIGHT*SCREEN_WIDTH/32));
+#else
         // advance ptr
-        if(ptr >= bufmem + 2*FRAME_BUFFER_SZ)
-            ptr -= 2*FRAME_BUFFER_SZ;
-        else
-            ptr += FRAME_BUFFER_SZ;
-        surf->pixels = ptr;
+		if(ptr == bufmem_roll) dlt = 2*FRAME_BUFFER_SZ;
+		saga_surface->pixels = (ptr -= dlt);
 		
-        // if(copy_pane_mask) {
-			// copy_pane_mask >>= 1;
-		asm goto ("lsr.w %0\n\tbeq.s %l1" : : "m"(copy_pane_mask) : : skip);
-			memcpy(ptr + PANEL_TOP*SCREEN_WIDTH, 
-		           old + PANEL_TOP*SCREEN_WIDTH, 
-				   PANEL_HEIGHT*SCREEN_WIDTH);
-		// }
-		skip: (void)0;
+        if(copy_pane_mask)
+		{
+			copy_pane_mask >>= 1;
+			memcpy(ptr + PANEL_TOP*SCREEN_WIDTH, ptr + PANEL_TOP*SCREEN_WIDTH + dlt, PANEL_HEIGHT*SCREEN_WIDTH);
+		}
+#endif
 #endif
     }
     return 0;
-legacy:
-    return SDL_Flip(surf);
 }
 
 int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
@@ -319,8 +374,11 @@ int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
 		if(srcRect 
 		// && srcRect->w < SCREEN_WIDTH			// ignore full screen
 		&& !(srcRect->w==288 && srcRect->h==60) // ignore descpane
-		&& srcRect->y + srcRect->h >= PANEL_TOP + SCREEN_Y
-		)	copy_pane_mask = 4; // we need to copy 3 times the panel if something was drawn there
+		&& srcRect->y + srcRect->h > PANEL_TOP + SCREEN_Y
+		) {
+			//printf("copy because of %d %d %d %d\n", srcRect->x, srcRect->y, srcRect->w, srcRect->h);
+			copy_pane_mask = 4; // we need to copy 3 times the panel if something was drawn there
+		}
         if(last_version!=pal_palette_version) {
             last_version = pal_palette_version;
             SDL_SetColors(saga_surface, pal_palette->colors, 0, pal_palette->ncolors);
