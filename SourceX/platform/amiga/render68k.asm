@@ -915,12 +915,14 @@ _setup
     move.l  __ZN3dvl10gpBufStartE,a5
     move.l  __ZN3dvl8gpBufEndE,a6
    endc
+   addq.l  #4,a3
    ifne  A5_RELATIVE
     sub.l   a5,a0
     sub.l   a5,a6
    endc
+  else
+    addq.l  #4,a3  
   endc
-    addq.l  #4,a3
 * determine renderFcn
 .ammx
     tst.b   _ac68080_ammx
@@ -1064,16 +1066,13 @@ epilogue_11 macro
 
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_TRANSPARENT(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_TRANSPARENT
-    prologue_11
-    addq.l  #2,a4           ; skip over load mask
-    REPT  32
+RT_TRANS  macro
     inline
 .L1
     move.l  -(a3),d6        ; m = *mask; mask--
     moveq   #32,d7
-.L2
     moveq   #0,d0           ; TODO: remove ?
+.L2
     move.b  (a1)+,d0
     bgt.b   .L3
 .L22
@@ -1089,18 +1088,49 @@ _RenderTile_RT_TRANSPARENT
     lsl.l   d0,d6
     sub.l   d0,d7
     beq     .L4             ; likely to be false most of the times
-    jsr     (a4)
-    moveq   #0,d0           ; TODO: remove ?
+    \1      \2
     move.b  (a1)+,d0
-    ble.b   .L22            ; more likely at this point
-    bra     .L3
+    bgt.b   .L3             ; more likely at this point
+    bra     .L22
 .L4
-    jsr     (a4)
+    \1      \2
 .L5
     sub.w   #BUFFER_WIDTH+32,a0
     einline
+  endm
+  
+_RenderTile_RT_TRANSPARENT
+    prologue_11
+    cmp.l     #_RenderLine0_AMMX,a4
+    beq       _RenderTile_RT_TRANSPARENT_0_AMMX
+    cmp.l     #_RenderLine2_AMMX,a4
+    beq       _RenderTile_RT_TRANSPARENT_2_AMMX
+    addq.l    #2,a4           ; skip over load mask
+    REPT  32
+    RT_TRANS  jsr,(a4)
     ENDR
     epilogue_11
+  
+    XDEF      _RenderTile_RT_TRANSPARENT_0_AMMX
+_RenderTile_RT_TRANSPARENT_0_AMMX
+    move.l    #32,a4
+.loop
+    RT_TRANS  bsr,_RenderLine0_AMMX+2
+    subq.l    #1,a4
+    tst.l     a4
+    bne       .loop
+    epilogue_11
+    
+    XDEF      _RenderTile_RT_TRANSPARENT_2_AMMX
+_RenderTile_RT_TRANSPARENT_2_AMMX
+    move.l    #32,a4
+.loop
+    RT_TRANS  bsr,_RenderLine2_AMMX+2
+    subq.l    #1,a4
+    tst.l     a4
+    bne       .loop
+    epilogue_11
+    
 
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_SQUARE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
