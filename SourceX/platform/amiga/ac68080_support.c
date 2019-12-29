@@ -9,14 +9,17 @@
 #include <exec/exec.h>
 #include <vampire/vampire.h>
 #include <intuition/intuitionbase.h>
+#include <cybergraphics/cybergraphics.h>
 
 #include <proto/exec.h>
 #include <proto/vampire.h>
+#include <proto/cybergraphics.h>
+
 
 #include "../../../../defs.h"
-#define FRAME_BUFFER_SZ     ((SCREEN_WIDTH)*(SCREEN_HEIGHT))
 
-#define DIRTY               0       // 1 = 32 fps     0 = 29fps
+#define FRAME_BUFFER_SZ     ((BUFFER_WIDTH)*(BUFFER_HEIGHT))
+
 #define DIRTY               0       // 1 = 32 fps     0 = 29fps
 
 #define CHECK_FIRSTSCREEN   1       // costs 0 fps
@@ -71,12 +74,12 @@ extern void gamemenu_quit_game(int);
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
 
-static USHORT copy_pane_mask = 0;
+static UBYTE copy_previous = 0, copy_panel_only = 0;
 
 static UBYTE *bufmem = NULL, *bufmem_roll;
-static UBYTE started  = 0;
+static UBYTE started  = 0, bypass_sdl = 0, pane;
 static struct Screen *game_screen;
-static SDL_Surface   *saga_surface;
+static struct View *view;
 
 struct Library *VampireBase;
 extern struct ExecBase *SysBase;
@@ -151,10 +154,6 @@ static int MUNMAP(void *p, size_t len)
 
 static void stop(void)
 {
-    if(saga_surface) {
-        SDL_FreeSurface(saga_surface);
-        saga_surface = NULL;
-    }
     if(bufmem) {
 		dlfree(bufmem);
         bufmem_roll = bufmem = NULL;
@@ -171,20 +170,10 @@ static void start(void)
 
         bufmem = dlmemalign(32/* byte alignment for saga */, 3*FRAME_BUFFER_SZ);
 		if(bufmem) {
-			saga_surface = SDL_CreateRGBSurfaceFrom(
-				bufmem,
-				SCREEN_WIDTH, SCREEN_HEIGHT, 8, SCREEN_WIDTH,
-				0, 0, 0, 0
-			);
-			if(!saga_surface) {
-				dlfree(bufmem);
-				bufmem = NULL;
-			} else {
-				bufmem_roll  = bufmem + 2*FRAME_BUFFER_SZ;
-			}
+			bufmem_roll = bufmem + 2*FRAME_BUFFER_SZ;
+		} else {
+			ac68080_saga = 0;
 		}
-
-        if(!bufmem) ac68080_saga = 0;
 
         if(!VampireBase) VampireBase = OpenResource( V_VAMPIRENAME );
         if(VampireBase && VampireBase->lib_Version >= 45 &&
@@ -206,6 +195,22 @@ static void start(void)
         printf(".\n");
     }
 }
+
+SDL_Surface* vampire_MakeTripleBuffer(SDL_Surface *surf) 
+{
+	if(!started) start();
+	
+	if(ac68080_saga
+	&&  surf->w==BUFFER_WIDTH
+	&&  surf->h==BUFFER_HEIGHT 
+	&&  surf->pitch==BUFFER_WIDTH
+	) {
+		surf->flags |= SDL_PREALLOC;
+		SDL_free(surf->pixels);
+		surf->pixels = bufmem;
+	} else ac68080_saga = 0;
+	return surf;
+}												
 
 static __attribute__((noinline)) void doChkSignals(void)
 {
@@ -249,44 +254,46 @@ static void chkSignals(void)
 	}
 }
 
-static __attribute__((noinline, regparm(2))) int ok(SDL_Surface *surf)
+static void blitRect(UBYTE *dst, UBYTE *src, UWORD x, UWORD y, size_t w, UWORD h)
 {
-	int t;
-    if(!started) start();
-    if(!ac68080_saga) return 0;
-	// always true
-    // if(surf!=SDL_GetVideoSurface()) return 0;
-    return surf->w == SCREEN_WIDTH && surf->h == SCREEN_HEIGHT ? -1 : 0;
+	src += SCREENXY(x,y);
+	dst += SCREENXY(x,y);
+	memcpy(dst-x, src-x, BUFFER_WIDTH*h);
+	
+	// do {
+		// memcpy(dst, src, w);
+		// src += BUFFER_WIDTH;
+		// dst += BUFFER_WIDTH;
+	// } while(--h);
 }
 
-int vampire_Flip(const SDL_Surface* surf)
+// check if palette has changed
+static void doPalette(void)
 {
-    volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
-//  volatile ULONG *pal = (ULONG*)0xDFF400;
+	static int last_version = 0;
+	if(last_version!=pal_palette_version) {
+		last_version = pal_palette_version;
+		SDL_SetColors(SDL_GetVideoSurface(), pal_palette->colors, 0, pal_palette->ncolors);
+	}
+}
+
+static void setFrameBufferRegs(UBYTE *ptr, UWORD modulo)
+{
+	volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
+    volatile UWORD  *mod = (UBYTE**)0xDFF1E6; /* Frame buffer modulo */
+
+	*dpy = ptr;
+	*mod = modulo;
+}
+
+static void doFlip(void)
+{
     struct Screen *first_screen;
-	static UBYTE panel_cpy_flag = 4;
 
-	chkSignals();
-	
 #if DIRTY
-    *dpy = (void*)(~31&(int)surf->pixels);
+	// hacky way to debug
+    *dpy = (void*)(~31&(int)pal_surface->pixels);
     return;
-#endif
-
-#define USE_ASM 1
-
-#if USE_ASM
-	// a bit risky as it assumes nothing is pushed on stack
-	// before this point, but I better like this code than
-	// the one from gcc
-	__asm__ __volatile__(
-	"	move.l	4(sp),a0	\n"
-	"	bsr.w	_ok			\n"
-	"	tst.l	d0			\n"
-	"	beq.l	_SDL_Flip	\n"
-	: : : "d0", "a0");
-#else
-    if(!ok(surf)) return SDL_Flip(surf);
 #endif
 
 #if CHECK_FIRSTSCREEN
@@ -300,107 +307,105 @@ int vampire_Flip(const SDL_Surface* surf)
     if(first_screen == game_screen)
 #endif
     {
-        register UBYTE *ptr asm("a0") = saga_surface->pixels;
-		register LONG dlt = -FRAME_BUFFER_SZ;
+		UBYTE *ptr = pal_surface->pixels;
+		LONG   dlt = ptr == bufmem_roll ? -2*FRAME_BUFFER_SZ : FRAME_BUFFER_SZ;
 
-        // display
-        *dpy = ptr;
+		setFrameBufferRegs(ptr + SCREENXY(0,0), BUFFER_WIDTH - SCREEN_WIDTH);
 
 #if ROLL_PTR
-#if USE_ASM
-		__asm__ __volatile(
-		"	cmpa.l	%2,%0					\n"
-		"	bne.s	.l1%=					\n"
-		"	move.l	%6,%1					\n"
-		".l1%=:								\n"
-		"	suba.l	%1,%0					\n"
-		"	move.l	%0,%3					\n"
-		"	adda.l	%7,%0					\n"
-		"	lsr.w	%4						\n"
-		"	beq		.l2%=					\n"
-//		"	pea		%8						\n"
-//		"	pea		(%0,%1.l)				\n"
-//		"	pea		(%0)					\n"
-//		"	bsr		%5						\n"
-//		"	add.w	#12,sp					\n"
-		"	lea		(%0,%1.l),a1			\n"
-		"	move.l	%8,d0					\n"
-		".l3%=:								\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	move.l	(a1)+,(%0)+				\n"
-		"	subq.l	#1,d0					\n"
-		"	bne.s	.l3%=					\n"
-		".l2%=:								\n"
-		: "+a"(ptr), "+d"(dlt)
-		: "m" (bufmem_roll), "m" (saga_surface->pixels), 
-		  "m" (copy_pane_mask), "m"(memcpy),
-		  "i"(2*FRAME_BUFFER_SZ), "i"(PANEL_TOP*SCREEN_WIDTH), "i" (PANEL_HEIGHT*SCREEN_WIDTH/32));
-#else
-        // advance ptr
-		if(ptr == bufmem_roll) dlt = 2*FRAME_BUFFER_SZ;
-		saga_surface->pixels = (ptr -= dlt);
-		
-        if(copy_pane_mask)
+	// printf("ptr=%p // %p %p %p %p\n", ptr,bufmem, bufmem+FRAME_BUFFER_SZ, bufmem+2*FRAME_BUFFER_SZ, bufmem+3*FRAME_BUFFER_SZ);
+
+		// need to copy parts of previous screen?
+        if(copy_previous)
 		{
-			copy_pane_mask >>= 1;
-			memcpy(ptr + PANEL_TOP*SCREEN_WIDTH, ptr + PANEL_TOP*SCREEN_WIDTH + dlt, PANEL_HEIGHT*SCREEN_WIDTH);
+			--copy_previous;
+			if(copy_panel_only)
+				blitRect(ptr+dlt, ptr, PANEL_LEFT, PANEL_TOP,   PANEL_WIDTH,  PANEL_HEIGHT);
+			else
+				blitRect(ptr+dlt, ptr,          0,          0, SCREEN_WIDTH, SCREEN_HEIGHT);
 		}
-#endif
+
+        // advance ptr
+		pal_surface->pixels = (ptr += dlt);		
 #endif
     }
-    return 0;
+	doPalette();
+}
+
+void vampire_BypassSDL(int enable_flip_disable)
+{
+	if(ac68080_saga) {
+		bypass_sdl = enable_flip_disable;
+		if(enable_flip_disable<0) doFlip();
+	}
+}
+
+int vampire_Flip(const SDL_Surface* surf)
+{
+	static SDL_Rect palRect = {SCREEN_X, SCREEN_Y, SCREEN_WIDTH, SCREEN_HEIGHT};
+	static UBYTE old_was_saga;
+	
+	chkSignals();
+	if(bypass_sdl) {
+		if(!old_was_saga) {
+			old_was_saga = 255;
+			SDL_BlitSurface(surf, NULL, pal_surface, &palRect);
+		}
+		return 0;
+	} else {
+		if(old_was_saga) {
+			SDL_BlitSurface(pal_surface, &palRect, surf, NULL);
+			if(game_screen==IntuitionBase->FirstScreen) {	
+				// struct Screen *s = IntuitionBase->FirstScreen, *t=s->NextScreen;
+				// s->NextScreen = t->NextScreen;
+				// t->NextScreen = s;
+				// IntuitionBase->FirstScreen = t;
+				// ScreenToFront(s);
+
+				ULONG bufmem;
+				APTR handle = LockBitMapTags(&game_screen->BitMap,
+						LBMI_BASEADDRESS, (ULONG)&bufmem,(ULONG)TAG_DONE);
+				if(handle) {
+					setFrameBufferRegs((UBYTE*)(bufmem&-32), 0);
+					UnLockBitMap(handle);
+					// old_was_saga = 0;
+					printf("reset intui\n");
+				} else printf("failed to reset intui\n");
+			}
+		}
+		return SDL_Flip(surf);
+	}
 }
 
 int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
                         SDL_Surface *dst, SDL_Rect *dstRect)
 {
-    if(ok(dst)) {
-        static int last_version;
-        // if(srcRect==NULL || srcRect->w==SCREEN_HEIGHT) {
-            // /*resync*/
-            // int ret = SDL_BlitSurface(src, srcRect, dst, dstRect);
-            // UBYTE *ptr = (UBYTE*)(~31&(31+(ULONG)bufmem));
-            // memcpy(ptr, dst->pixels, FRAME_BUFFER_SZ); ptr += FRAME_BUFFER_SZ;
-            // memcpy(ptr, dst->pixels, FRAME_BUFFER_SZ); ptr += FRAME_BUFFER_SZ;
-            // memcpy(ptr, dst->pixels, FRAME_BUFFER_SZ); ptr += FRAME_BUFFER_SZ;
-            // return ret;
-        // }
-		if(srcRect 
-		// && srcRect->w < SCREEN_WIDTH			// ignore full screen
-		&& !(srcRect->w==288 && srcRect->h==60) // ignore descpane
-		&& srcRect->y + srcRect->h > PANEL_TOP + SCREEN_Y
-		) {
-			//printf("copy because of %d %d %d %d\n", srcRect->x, srcRect->y, srcRect->w, srcRect->h);
-			copy_pane_mask = 4; // we need to copy 3 times the panel if something was drawn there
-		}
-        if(last_version!=pal_palette_version) {
-            last_version = pal_palette_version;
-            SDL_SetColors(saga_surface, pal_palette->colors, 0, pal_palette->ncolors);
-        }
-        return SDL_BlitSurface(src, srcRect, saga_surface, dstRect);
-    }
-    return SDL_BlitSurface(src, srcRect, dst, dstRect);
+	if(!bypass_sdl) 
+		return SDL_BlitSurface(src, srcRect, dst, dstRect);
+	
+	// check if something is displayed in the panel
+	if(!srcRect || srcRect->h>=SCREEN_HEIGHT)  {
+		copy_panel_only = 0;
+		copy_previous 	= 3;
+	} else if(srcRect->y + srcRect->h > PANEL_Y
+	        && !(srcRect->w==288 && srcRect->h==60) // ignore descpane
+	) {
+		if(!copy_previous)
+			copy_panel_only = 1;			
+		copy_previous = 3;
+	}
+	
+	return 0;
 }
 
 #define min(a,b) ((a)<=(b)?(a):(b))
 
-int zzzvampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
+int simple_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
                         SDL_Surface *dst, SDL_Rect *dstRect)
 {
     register UBYTE *s, *d;
     UWORD  w;
     WORD   h;
-
-    if(!ok(dst)) goto legacy;
-
-    // replace sdl video output by our own
-    dst = saga_surface;
 
     if(!srcRect) {
         static SDL_Rect r;
@@ -434,8 +439,4 @@ int zzzvampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
         d += dst->pitch;
     }
     return 0;
-legacy:
-    // if(srcRect && dstRect)
-    // return SDL_LowerBlit(src, srcRect, dst, dstRect);
-    return SDL_BlitSurface(src, srcRect, dst, dstRect);
 }

@@ -1261,11 +1261,23 @@ void DrawAndBlit()
 
 	unlock_buf(0);
 
+#ifdef __AMIGA__
+	vampire_BypassSDL(1);
+#endif
+
 	DrawMain(hgt, ddsdesc, drawhpflag, drawmanaflag, drawsbarflag, drawbtnflag);
+
+#ifdef __AMIGA__
+	vampire_BypassSDL(-1);
+#endif
 
 	lock_buf(0);
 	scrollrt_draw_cursor_back_buffer();
 	unlock_buf(0);
+
+#ifdef __AMIGA__
+	vampire_BypassSDL(0);
+#endif
 
 	drawhpflag = FALSE;
 	drawmanaflag = FALSE;

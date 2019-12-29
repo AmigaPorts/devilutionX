@@ -7,9 +7,17 @@
 namespace dvl {
 
 #ifdef __AMIGA__
-#define SDL_Flip        	 vampire_Flip
-#define SDL_BlitSurface		vampire_BlitSurface
-// #define SDL_Flip(x)         (*(int*)0xDFF1EC = -32&(int)((x)->pixels), 0)
+static inline SDL_Surface* wrap_CreateRGBSurfaceWithFormat(Uint32 flags,
+                                            int    width,
+                                            int    height,
+                                            int    depth,
+                                            Uint32 format)
+{
+	return vampire_MakeTripleBuffer(SDL_CreateRGBSurfaceWithFormat(flags, width, height, depth, format));
+}
+#define SDL_Flip        	           vampire_Flip
+#define SDL_BlitSurface		           vampire_BlitSurface
+#define SDL_CreateRGBSurfaceWithFormat wrap_CreateRGBSurfaceWithFormat
 #endif
 
 int sgdwLockCount;
