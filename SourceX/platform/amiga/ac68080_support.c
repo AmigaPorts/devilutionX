@@ -74,10 +74,10 @@ extern void gamemenu_quit_game(int);
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
 
-static UBYTE copy_previous = 0, copy_panel_only = 0;
+static USHORT copy_previous = 0;
 
 static UBYTE *bufmem = NULL, *bufmem_roll;
-static UBYTE started  = 0, bypass_sdl = 0, pane;
+static UBYTE started  = 0, last_was_pal, last_was_other, copy_all;
 static struct Screen *game_screen;
 static struct View *view;
 
@@ -277,6 +277,7 @@ static void doPalette(void)
 	}
 }
 
+// set saga regs to dsplay screen at ptr (modulo bytes to skip at end of line)
 static void setFrameBufferRegs(UBYTE *ptr, UWORD modulo)
 {
 	volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
@@ -319,10 +320,8 @@ static void doFlip(void)
         if(copy_previous)
 		{
 			--copy_previous;
-			if(copy_panel_only)
-				blitRect(ptr+dlt, ptr, PANEL_LEFT, PANEL_TOP,   PANEL_WIDTH,  PANEL_HEIGHT);
-			else
-				blitRect(ptr+dlt, ptr,          0,          0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			if(copy_all)	blitRect(ptr+dlt, ptr, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+			else			blitRect(ptr+dlt, ptr, PANEL_LEFT, PANEL_TOP, PANEL_WIDTH, PANEL_HEIGHT);
 		}
 
         // advance ptr
@@ -332,47 +331,14 @@ static void doFlip(void)
 	doPalette();
 }
 
-void vampire_BypassSDL(int enable_flip_disable)
-{
-	if(ac68080_saga) {
-		bypass_sdl = enable_flip_disable;
-		if(enable_flip_disable<0) doFlip();
-	}
-}
-
 int vampire_Flip(const SDL_Surface* surf)
 {
-	static SDL_Rect palRect = {SCREEN_X, SCREEN_Y, SCREEN_WIDTH, SCREEN_HEIGHT};
-	static UBYTE old_was_saga;
-	
 	chkSignals();
-	if(bypass_sdl) {
-		if(!old_was_saga) {
-			old_was_saga = 255;
-			SDL_BlitSurface(surf, NULL, pal_surface, &palRect);
-		}
-		return 0;
-	} else {
-		if(old_was_saga) {
-			SDL_BlitSurface(pal_surface, &palRect, surf, NULL);
-			if(game_screen==IntuitionBase->FirstScreen) {	
-				// struct Screen *s = IntuitionBase->FirstScreen, *t=s->NextScreen;
-				// s->NextScreen = t->NextScreen;
-				// t->NextScreen = s;
-				// IntuitionBase->FirstScreen = t;
-				// ScreenToFront(s);
 
-				ULONG bufmem;
-				APTR handle = LockBitMapTags(&game_screen->BitMap,
-						LBMI_BASEADDRESS, (ULONG)&bufmem,(ULONG)TAG_DONE);
-				if(handle) {
-					setFrameBufferRegs((UBYTE*)(bufmem&-32), 0);
-					UnLockBitMap(handle);
-					// old_was_saga = 0;
-					printf("reset intui\n");
-				} else printf("failed to reset intui\n");
-			}
-		}
+	if(last_was_pal) {
+		last_was_pal = 0;
+		doFlip();
+	} else {
 		return SDL_Flip(surf);
 	}
 }
@@ -380,22 +346,19 @@ int vampire_Flip(const SDL_Surface* surf)
 int vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
                         SDL_Surface *dst, SDL_Rect *dstRect)
 {
-	if(!bypass_sdl) 
-		return SDL_BlitSurface(src, srcRect, dst, dstRect);
-	
-	// check if something is displayed in the panel
-	if(!srcRect || srcRect->h>=SCREEN_HEIGHT)  {
-		copy_panel_only = 0;
-		copy_previous 	= 3;
-	} else if(srcRect->y + srcRect->h > PANEL_Y
-	        && !(srcRect->w==288 && srcRect->h==60) // ignore descpane
-	) {
-		if(!copy_previous)
-			copy_panel_only = 1;			
-		copy_previous = 3;
-	}
-	
-	return 0;
+	if(ac68080_saga && src==pal_surface) {
+		last_was_pal = 255;
+		if(!srcRect || srcRect->h>=SCREEN_HEIGHT) {
+			copy_all = 255;
+			copy_previous = 3;
+		} else if(srcRect->y + srcRect->h > PANEL_Y // something drawn in panel
+			&& !(srcRect->w==288 && srcRect->h==60) // ignore descpane
+		) {
+			copy_all = 0;
+			copy_previous = 3;
+		}
+		return 0;
+	} else return SDL_BlitSurface(src, srcRect, dst, dstRect);
 }
 
 #define min(a,b) ((a)<=(b)?(a):(b))

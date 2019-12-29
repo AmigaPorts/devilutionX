@@ -16,7 +16,6 @@ extern "C"
 {
 	extern char ac68080_saga;
 	extern char ac68080_ammx;
-	extern void vampire_BypassSDL(int enable_flip_disable);
 	extern int  vampire_Flip(SDL_Surface *surf);	
 	extern int  vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
 						     SDL_Surface *dst, SDL_Rect *dstRect);

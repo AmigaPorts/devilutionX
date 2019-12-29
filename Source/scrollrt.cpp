@@ -1200,6 +1200,10 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 	DrawMain(hgt, 0, 0, 0, 0, 0);
 
 	if (draw_cursor) {
+#ifdef __AMIGA__
+		lock_buf(0);
+		unlock_buf(0); // forces flip before cursor restore display
+#endif
 		lock_buf(0);
 		scrollrt_draw_cursor_back_buffer();
 		unlock_buf(0);
@@ -1261,23 +1265,16 @@ void DrawAndBlit()
 
 	unlock_buf(0);
 
-#ifdef __AMIGA__
-	vampire_BypassSDL(1);
-#endif
-
 	DrawMain(hgt, ddsdesc, drawhpflag, drawmanaflag, drawsbarflag, drawbtnflag);
 
 #ifdef __AMIGA__
-	vampire_BypassSDL(-1);
+	lock_buf(0);
+	unlock_buf(0); // forces flip before cursor restore display
 #endif
 
 	lock_buf(0);
 	scrollrt_draw_cursor_back_buffer();
 	unlock_buf(0);
-
-#ifdef __AMIGA__
-	vampire_BypassSDL(0);
-#endif
 
 	drawhpflag = FALSE;
 	drawmanaflag = FALSE;
