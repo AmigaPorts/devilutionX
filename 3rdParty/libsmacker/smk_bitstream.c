@@ -14,7 +14,209 @@
 /* malloc and friends */
 #include "smk_malloc.h"
 
-#if 1 /* SAM's version */
+#define BUFFER_LEN 24
+
+#if BUFFER_LEN==24
+//#undef __mc68000__ // to test C version
+
+struct smk_bit_t
+{
+    unsigned long buf;
+    unsigned char *ptr, *end;
+    unsigned long  siz;
+};
+
+struct smk_bit_t* smk_bs_init(const unsigned char* b, const unsigned long size)
+{
+    struct smk_bit_t* ret = NULL;
+
+    /* sanity check */
+    smk_assert(b);
+
+    /* allocate a bitstream struct */
+    smk_malloc(ret, sizeof(struct smk_bit_t));
+
+    /* set up the pointer to bitstream, and the size counter */
+    ret->buf = 1;
+    ret->ptr = b;
+    ret->end = b + size;
+    ret->siz = size;
+
+    /* point to initial byte: note, smk_malloc already sets these to 0 */
+    /* ret->byte_num = 0;
+    ret->bit_num = 0; */
+
+    /* return ret or NULL if error : ) */
+error:
+    return ret;
+}
+
+REGPARM unsigned char _smk_error(struct smk_bit_t* bs)
+{
+    fprintf(stderr, "libsmacker::_smk_bs_read_?(bs=%p): ERROR: bitstream (length=%lu, ptr=%p, end=%p) exhausted.\n", bs, bs->siz, bs->ptr, bs->end);
+    bs->buf=1;
+    return 2;
+}
+
+REGPARM unsigned long _smk_refill(struct smk_bit_t* bs)
+{
+#ifdef __mc68000__
+    register unsigned long ret     asm("d0");
+    register struct smk_bit_t* bs_ asm("a0") = bs;
+    __asm__ __volatile__ (
+	"	move.l	4(a0),a1	\n"
+	"	move.l	8(a0),d1	\n"
+	"	sub.l	a1,d1		\n"
+	"	bhi.b	.l1%=		\n"
+	"	move.l	a0,-(sp)	\n"
+	"	bsr		%2			\n"
+	"	move.l	(sp)+,a0	\n"
+	"	bra.b	.l5%=		\n"	
+	".l1%=:					\n"
+	"	move.l	(a1),d0		\n"		// AABBCCDD
+	"	ror.w	#8,d0		\n"		// AABBDDCC
+	"	swap	d0			\n"		// DDCCAABB
+	"	ror.w	#8,d0		\n" 	// DDCCBBAA
+	
+	"	addq.l	#1,a1		\n"
+	"	subq.l	#1,d1		\n"
+	"	bne.b	.l2%=		\n"
+	"	move.l	#0xFF,d1    \n"
+	"	bra.b	.l4%=		\n"
+	
+	".l2%=:					\n"
+	"	addq.l	#1,a1		\n"
+	"	subq.l	#1,d1		\n"
+	"	bne.b	.l3%=		\n"
+	"	move.l	#0xFFFF,d1  \n"
+	"	bra.b	.l4%=		\n"
+	
+	".l3%=:					\n"
+	"	addq.l	#1,a1		\n"
+	"	move.l	#0xFFFFFF,d1\n"
+	
+	".l4%=:					\n"
+	"	and.l	d1,d0		\n"
+	"	addq.l	#1,d1		\n"
+	"	move.l	a1,4(a0)	\n"
+	"	or.l	d1,d0		\n"
+	
+	".l5%=:					\n"
+    : "=d" (ret) : "a" (bs_), "m"(_smk_refill)
+    : "d1","a1","a0" );
+    return ret;
+#define CALL_REFILL(adr)	"\tbsr "#adr"\n"   // refill now preserves a0 reg
+#else
+	unsigned char *a0 = bs->ptr;
+	unsigned long d0, d1;
+	if(a0==bs->end) return _smk_error(bs);
+	d0 = *a0++; d1=256;
+	if(a0!=bs->end) {d0 |= *a0++ * d1; d1<<=8;}
+	if(a0!=bs->end) {d0 |= *a0++ * d1; d1<<=8;}
+	d0 |= d1;
+	bs->ptr = a0;
+	return d0;
+#define CALL_REFILL(adr)	"\tmove.l a0,-(sp)\n\tbsr "#adr"\n\tmove.l (sp)+,a0\n"
+#endif
+}
+
+/* Reads a bit
+    Returns -1 if error encountered */
+REGPARM char _smk_bs_read_1(struct smk_bit_t* bs)
+{
+    /* sanity check */
+    //  smk_assert(bs);
+    {
+#ifdef __mc68000__
+    register unsigned char ret     asm("d0");
+    register struct smk_bit_t* bs_ asm("a0") = bs;
+    __asm__ __volatile__ (
+	"	move.l	(a0),d0		\n"
+	"	lsr.l	#1,d0		\n"
+	"   bne.b   .result%=   \n"
+	CALL_REFILL("%2")
+	"	lsr.l	#1,d0		\n"
+    ".result%=:             \n"
+	"	move.l	d0,(a0)		\n"
+    "	moveq	#0,d0		\n"
+	"	addx.l	d0,d0		\n"
+    : "=d" (ret) : "a" (bs_), "m"(_smk_refill)
+    : "d1","a1","a0" );
+    return ret;
+#else
+    unsigned long ret;
+    ret = bs->buf; bs->buf >>= 1;
+    if(!bs->buf) { ret = _smk_refill(bs); bs->buf = ret>>1; }
+    return ret & 1;
+#endif
+    }
+}
+
+/* Reads a byte
+    Returns -1 if error. */
+REGPARM short _smk_bs_read_8(struct smk_bit_t* bs)
+{
+    /* sanity check */
+    //  smk_assert(bs);
+    {
+#ifdef __mc68000__
+    register unsigned char ret     asm("d0");
+    register struct smk_bit_t* bs_ asm("a0") = bs;
+    
+    __asm__ __volatile__ (
+    "   move.l  (a0),d1     \n"
+	"   cmp.l   #256,d1		\n"
+	"	bcc.s	.l1%=		\n"
+	CALL_REFILL("%2")
+	"   move.l  (a0),d1     \n"
+	"	cmp.w	#1,d1		\n"
+	"	bls.s	.l2%=		\n"
+	
+	"	subq.l	#1,d0		\n"
+    "   move.l	d0,a1       \n"
+	
+	"	move.l	d1,d0		\n"
+	"	lsr.l	#1,d0		\n"
+	"	or.l	d0,d1		\n"
+	
+	"	move.l	d1,d0		\n"
+	"	lsr.l	#2,d0		\n"
+	"	or.l	d0,d1		\n"
+
+	"	move.l	d1,d0		\n"
+	"	lsr.l	#4,d0		\n"
+	"	or.l	d0,d1		\n"
+
+	"	lsr.l	#1,d1		\n"
+	"	addq.l	#1,d1		\n"
+	
+	"	move.l	a1,d0		\n"
+	"	mulu.l	d1,d0		\n"
+	"	add.l	(a0),d0		\n"
+	".l2%=:					\n"
+	"	move.l	d0,d1		\n"
+    ".l1%=:                 \n"
+	"	moveq	#0,d0		\n"
+	"	move.b	d1,d0		\n"
+	"	lsr.l	#8,d1		\n"
+	"	move.l	d1,(a0)		\n"
+    : "=d" (ret) : "a" (bs_), "m" (_smk_refill)
+    : "d1","a1","a0");
+#else
+    unsigned long a = bs->buf;
+	if(a<=1) a = _smk_refill(bs);
+	else if(a<256) {
+		unsigned long b = a>>1; b |= b>>1; b |= b>>2; b |= b>>4; ++b;
+		a += b*(_smk_refill(bs)-1);
+	}
+	bs->buf = a>>8;
+	return a&255;
+#endif
+    }
+}
+
+#elif BUFFER_LEN==16
+
 // #undef __mc68000__ // to test C version
 
 struct smk_bit_t
@@ -206,7 +408,7 @@ REGPARM short _smk_bs_read_8(struct smk_bit_t* bs)
     }
 }
 
-#else
+#else // original code
 
 /*
     Bitstream structure
