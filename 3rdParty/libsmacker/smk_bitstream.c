@@ -14,7 +14,7 @@
 /* malloc and friends */
 #include "smk_malloc.h"
 
-#define BUFFER_LEN 24
+#define BUFFER_LEN 24 // fastest version it seem
 
 #if BUFFER_LEN==24
 //#undef __mc68000__ // to test C version
