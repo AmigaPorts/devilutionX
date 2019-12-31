@@ -21,6 +21,8 @@ void (*DrawPlrProc)(int, int, int, int, int, BYTE *, int, int, int, int);
 BYTE sgSaveBack[8192];
 DWORD sgdwCursHgtOld;
 
+//#define static static __attribute__((regparm))
+
 /* data */
 
 /* used in 1.00 debug */
@@ -477,25 +479,23 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag);
 
 static void drawRow(int x, int y, int sx, int sy, int eflag)
 {
-#ifdef __mc68000__ // this code is better for 68k
-	BYTE *dst;
-	MICROS *pMap;
-	WORD *mt;
-	
-	level_piece_id = dPiece[x][y];
-	light_table_index = dLight[x][y];
+#ifdef __mc68000__ // this code is better for gcc
+	BYTE *dst = &gpBuffer[sx + (unsigned short)sy * (unsigned short)BUFFER_WIDTH];	
+	int xy= (unsigned short)x*(unsigned short)MAXDUNY+y;	
+#define xy(T) (&T[0][0]+xy)[0]
+	WORD *mt = &xy(dpiece_defs_map_2).mt[0];
 
-	dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
-	pMap = &dpiece_defs_map_2[x][y];
-	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
+	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[xy(dTransVal)]);
 	
-	mt = &pMap->mt[0];
+	level_piece_id = xy(dPiece);
+	light_table_index = xy(dLight);
+
 	arch_draw_type = 1;
-	level_cel_block = *mt++;
-	if (level_cel_block != 0) drawUpperScreen(dst);
+	if ((level_cel_block = *mt++)) drawUpperScreen(dst);
+	
 	arch_draw_type = 2;
-	level_cel_block = *mt++;
-	if (level_cel_block != 0) drawUpperScreen(dst + 32);
+	if ((level_cel_block = *mt++)) drawUpperScreen(dst + 32);
+	
 	arch_draw_type = 0;
 	for(WORD i = MicroTileLen>>1; --i>0;) {
 		dst -= BUFFER_WIDTH * 32;
@@ -1096,7 +1096,7 @@ static void DrawFPS()
 		frames = tc - framestart;
 		if (tc - framestart >= 1000) {
 			framestart = tc;
-			framerate = 1000 * frameend / frames;
+			framerate = (1000 * frameend + frames/2) / frames;
 			frameend = 0;
 		}
 		wsprintf(String, "%d FPS", framerate);
