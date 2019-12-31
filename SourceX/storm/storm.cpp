@@ -577,7 +577,13 @@ void SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 		}
 	}
 #elif SDL1_VIDEO_MODE_BPP == 8
-	SDL_SetVideoMode(SVidWidth, SVidHeight, SDL1_VIDEO_MODE_BPP, GetOutputSurface()->flags);
+	SDL_SetVideoMode(SVidWidth, 
+#ifdef __AMIGA__ // fixes video not being centered
+					 SVidHeight<200?200:SVidHeight,
+#else
+					 SVidHeight, 
+#endif
+					 SDL1_VIDEO_MODE_BPP, GetOutputSurface()->flags);
 #endif
 	memcpy(SVidPreviousPalette, orig_palette, 1024);
 
