@@ -2,7 +2,7 @@
 * render68k.asm -- replacement of C code by hand-written asm code by S.Devulder
 * -----------------------------------------------------------------------------
     machine 68080
-    
+
     section .text
 
 BUFFER_WIDTH    set     768
@@ -28,7 +28,7 @@ BYTE_INDEX_MODE set     0   ; 1 = experimental index mode on v4
     XREF    __ZN3dvl8lightmaxE
     XREF    __ZN3dvl17light_table_indexE
     XREF    _ac68080_ammx
-    
+
     cnop    0,4
 
 bank macro
@@ -178,7 +178,7 @@ _RenderLine0_AMMX
 * other cases
 
 move_ macro
-; move.\1  (a2,d\2 . b\3),d\4 
+; move.\1  (a2,d\2 . b\3),d\4
     dc.w    %0000000000110010+%0001000000000000*\1+%0000001000000000*\4
     dc.w    %0000000100001000+%0001000000000000*\2+\3
     endm
@@ -194,7 +194,7 @@ transform   macro
     rol.l   #8,d4           ; p2 2
     swap    d3              ; p1      d3=CDCDDAABB
     and.l   #$00FF00FF,d2   ; p2 3    d2=00CC00AA
-    swap    d5              ; p1 
+    swap    d5              ; p1
     and.l   #$00FF00FF,d3   ; p2 4    d3=00DD00BB
     and.l   #$00FF00FF,d4   ; p1
     and.l   #$00FF00FF,d5   ; p2 5
@@ -214,10 +214,10 @@ transform   macro
     move_   %11,3,3,2       ; p1 4  move.w  (a2,d3.b3),d2
     move_   %01,3,2,2       ; p1 5  move.b  (a2,d3.b2),d2
     move_   %11,5,3,4       ; p1 6  move.w  (a2,d5.b3),d4
-    swap    d2              ; p2 6                       
+    swap    d2              ; p2 6
     move_   %01,5,2,4       ; p1 7  move.b  (a2,d5.b2),d4
     move_   %11,3,1,2       ; p1 8  move.w  (a2,d3.b1),d2
-    swap    d4              ; p2 8                       
+    swap    d4              ; p2 8
     move_   %01,3,0,2       ; p1 9  move.b  (a2,d3.b0),d2
     move_   %11,5,1,4       ; p1 10 move.w  (a2,d5.b1),d4
     move_   %01,5,0,4       ; p1 11 move.b  (a2,d5.b0),d4
@@ -254,7 +254,7 @@ transfAA55_8 macro
     movep.l d1,\1-8(a0)             ; 9
   endc ; BYTE_INDEX_MODE
   endm
-  
+
 transfAA55 macro
     inline
   ifeq  BYTE_INDEX_MODE
@@ -344,7 +344,7 @@ _RenderLine2_AMMX
     vperm   #$4567CDEF,d2,d4,d2
     storem  d2,d1,(a0)
     endm
-    
+
     move.l  d1,d3               ; \ fused
     addq.l  #1,d3               ; /
     bne     .mask
@@ -356,7 +356,7 @@ _RenderLine2_AMMX
 .mask
     move.l  #$AAAAAAAA,d3
     eor.l   d1,d3
-    beq     .maskAA    
+    beq     .maskAA
     not.l   d3
     beq     .mask55
 .maskXX
@@ -615,7 +615,7 @@ _RenderLine2
 
 *------------------------------------------------------------------------------------
     xdef    _setup
-    
+
 * a3 = stack params ptr
 * a4 = .epilogue
 _setup
@@ -656,7 +656,7 @@ _setup
     lea     _RenderLine1(pc),a4
 .done
     rts
-    
+
 prologue_7 macro
 .size set 8
     movem.l d2-d5/a2-a5,-(sp)
@@ -702,7 +702,7 @@ epilogue_11 macro
 
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_TRANSPARENT(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-  
+
 _RenderTile_RT_TRANSPARENT
     prologue_11
     move.w  #32,a6
