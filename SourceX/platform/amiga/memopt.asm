@@ -42,7 +42,7 @@ ___wrap_memcpy
 
     move.l  .dst(sp),d0   ; p1 1
     move.l  .src(sp),a0   ; p1 2
-    add.l   .len(sp),d1   ; p1 3    
+    move.l  .len(sp),d1   ; p1 3    
     movea.l d0,a1
     
 .loop
