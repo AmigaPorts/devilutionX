@@ -3,10 +3,6 @@
 * -----------------------------------------------------------------------------
     machine 68080
     
-    section .bss
-_epilogue
-    rs.l    1
-
     section .text
 
 BUFFER_WIDTH    set     768
@@ -66,11 +62,10 @@ _RenderLine_NONE
     rts
 
 chk_bounds  macro
-    cmpa.l  a5,a0
-    bcs.b   .chk_bounds
-    move.l  _epilogue,(sp)
-    rts
-.chk_bounds
+.ck cmpa.l  a5,a0
+    bcc     _RenderLine_NONE
+    addq.l  #.ok_bounds-.ck,a4
+.ok_bounds
     endm
 
 * -----------------------------------------------------------------------------
@@ -624,52 +619,48 @@ _RenderLine2
 * a3 = stack params ptr
 * a4 = .epilogue
 _setup
-    move.l  (a3)+,a0            ; \ points to bottom
-    move.l  (a3)+,a1            ; / fused
-    move.l  (a3)+,a2            ; \ fused
-    move.l  (a3)+,a3            ; /
-    movea.l __ZN3dvl10gpBufStartE,a5
-    sub.w   #31*4,a3            ; point to start
-    move.l  a4,_epilogue
-    moveq   #0,d3
-    cmpa.l  __ZN3dvl8gpBufEndE,a0
-    bcc.b   .setup_drawLine
-    cmpa.l  a5,a0
-    bcs     _RenderLine2\.chk_bounds-2    
-    moveq    #_RenderLine2\.chk_bounds-_RenderLine2,d3
-.setup_drawLine
-    sub.w   #32*BUFFER_WIDTH,a0 ; point to start
+    movea.l (a3)+,a0    ; \ points to bottom
+    movea.l (a3)+,a1    ; / fused
+    movea.l (a3)+,a2    ; \ fused
+    movea.l (a3)+,a3    ; /
+    addq.l  #4,a3       ; point to start
+    cmpa.l  __ZN3dvl10gpBufStartE,a0
+    bcc.b   .ok
+    move.l  a4,(sp)     ; tile largely above top of screen
+    rts                 ; just goto epilogue
+.ok
+    movea.l __ZN3dvl8gpBufEndE,a5
 .ammx
     tst.b   _ac68080_ammx
     beq.b   .m68k
     lea     _RenderLine0_AMMX(pc),a4
     move.l  __ZN3dvl17light_table_indexE,d2
-    beq.b   .l1
+    beq.b   .patch
     sub.b   __ZN3dvl8lightmaxE,d2
     lea     _RenderLine2_AMMX(pc),a4
-    bne.b   .l1
+    bne.b   .patch
     lea     _RenderLine1_AMMX(pc),a4
-.l1 add.w   d3,a4
 * remove initial comparison so that it now only costs 1 cycle
+.patch
     move.w  #$203c,.ammx       ; move.l #nnnn,d0
     move.w  #$7200,.ammx+6     ; moveq  #0,d1
-    move.w  #$4e75,.l1+2       ; #rts
+    move.w  #$4e75,.patch      ; #rts
     rts                        ; no need to ClearCacheU on apollo!
 .m68k
     lea     _RenderLine0(pc),a4
     move.l  __ZN3dvl17light_table_indexE,d2
-    beq     .l2
+    beq.b   .done
     sub.b   __ZN3dvl8lightmaxE,d2
     lea     _RenderLine2(pc),a4
-    bne.b   .l2
+    bne.b   .done
     lea     _RenderLine1(pc),a4
-.l2 add.w   d3,a4
+.done
     rts
     
 prologue_7 macro
 .size set 8
     movem.l d2-d5/a2-a5,-(sp)
-    lea     (-.size*4+4,sp),a3
+    lea     (.size*4+4,sp),a3
     lea     .epilogue(pc),a4
     bsr     _setup
     endm
@@ -689,7 +680,7 @@ epilogue_7  macro
 prologue_11 macro
 .size set 11
     movem.l d2-d7/a2-a6,-(sp)
-    lea     (-.size*4+4,sp),a3
+    lea     (.size*4+4,sp),a3
     lea     .epilogue(pc),a4
     bsr     _setup
     endm
@@ -716,7 +707,7 @@ _RenderTile_RT_TRANSPARENT
     prologue_11
     move.w  #32,a6
 .L1
-    move.l  (a3)+,d6        ; m = *mask; mask--
+    move.l  -(a3),d6        ; m = *mask; mask--
     moveq   #32,d7
     subq.l  #1,a6
     moveq   #0,d0           ; TODO: remove ?
@@ -744,50 +735,22 @@ _RenderTile_RT_TRANSPARENT
     jsr     (a4)
 .L5
     tst.l   a6
-    adda.w  #BUFFER_WIDTH-32,a0
+    sub.w   #BUFFER_WIDTH+32,a0
     bne     .L1
     epilogue_11
 
 *------------------------------------------------------------------------------------
-* extern void RenderTile_RT_SQUARE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_SQUARE
-    prologue_7
-    bsr     block16
-    bsr     block16
-    epilogue_7
 
-*------------------------------------------------------------------------------------
-
-    XDEF    block16
-    XDEF    triangL
-    XDEF    triangR
-
-block16
+block16 macro
     REPT    16
     moveq   #32,d0
-    move.l  (a3)+,d1
+    move.l  -(a3),d1
     jsr     (a4)
-    add.w   #BUFFER_WIDTH-32,a0
+    sub.w   #BUFFER_WIDTH+32,a0
     ENDR
-    rts
+    endm
 
-*------------------------------------------------------------------------------------
-* extern void RenderTile_RT_LTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_LTRAPEZOID
-    prologue_7
-    bsr     triangL
-    bsr     block16
-    epilogue_7
-
-*------------------------------------------------------------------------------------
-* extern void RenderTile_RT_RTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
-_RenderTile_RT_RTRAPEZOID
-    prologue_7
-    bsr     triangR
-    bsr     block16
-    epilogue_7
-
-triangL
+triangL macro
 .i  set     30
     add.w   #.i,a0
     REPT    16
@@ -795,34 +758,58 @@ triangL
     addq.w  #2,a1
     ENDC
     moveq   #32-.i,d0
-    move.l  (a3)+,d1
+    move.l  -(a3),d1
     jsr     (a4)
     IFNE    .i
 .i  set     .i-2
     ENDC
-    add.w   #BUFFER_WIDTH-32+.i,a0
+    sub.w   #BUFFER_WIDTH+32-.i,a0
     ENDR
-    rts
+    endm
 
-triangR
+triangR macro
 .i  set     30
     REPT    16
     moveq   #32-.i,d0
-    move.l  (a3)+,d1
+    move.l  -(a3),d1
     jsr     (a4)
     IFNE    .i&2
     addq.w  #2,a1
     ENDC
-    add.w   #BUFFER_WIDTH-32+.i,a0
+    sub.w   #BUFFER_WIDTH+32-.i,a0
 .i  set     .i-2
     ENDR
-    rts
+    endm
+
+*------------------------------------------------------------------------------------
+* extern void RenderTile_RT_SQUARE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
+_RenderTile_RT_SQUARE
+    prologue_7
+    block16
+    block16
+    epilogue_7
+
+*------------------------------------------------------------------------------------
+* extern void RenderTile_RT_LTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
+_RenderTile_RT_LTRAPEZOID
+    prologue_7
+    triangL
+    block16
+    epilogue_7
+
+*------------------------------------------------------------------------------------
+* extern void RenderTile_RT_RTRAPEZOID(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
+_RenderTile_RT_RTRAPEZOID
+    prologue_7
+    triangR
+    block16
+    epilogue_7
 
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_LTRIANGLE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
 _RenderTile_RT_LTRIANGLE
     prologue_7
-    bsr     triangL
+    triangL
 .i  set     2
     addq.l  #.i,a0
     REPT    15
@@ -830,11 +817,11 @@ _RenderTile_RT_LTRIANGLE
     addq.w  #2,a1
     ENDC
     moveq   #32-.i,d0
-    move.l  (a3)+,d1
+    move.l  -(a3),d1
     jsr     (a4)
     IFNE    .i-30
 .i  set     .i+2
-    add.w   #BUFFER_WIDTH-32+.i,a0
+    sub.w   #BUFFER_WIDTH+32-.i,a0
     ENDC
     ENDR
     epilogue_7
@@ -843,16 +830,16 @@ _RenderTile_RT_LTRIANGLE
 * extern void RenderTile_RT_RTRIANGLE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
 _RenderTile_RT_RTRIANGLE
     prologue_7
-    bsr     triangR
+    triangR
 .i  set     2
     REPT    15
     moveq   #32-.i,d0
-    move.l  (a3)+,d1
+    move.l  -(a3),d1
     jsr     (a4)
     IFNE    .i&2
     addq.w  #2,a1
     ENDC
-    add.w   #BUFFER_WIDTH-32+.i,a0
+    sub.w   #BUFFER_WIDTH+32-.i,a0
 .i  set     .i+2
     ENDR
     epilogue_7
