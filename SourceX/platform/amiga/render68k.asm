@@ -7,6 +7,7 @@
 
 BUFFER_WIDTH    set     768
 BYTE_INDEX_MODE set     0   ; 1 = experimental index mode on v4
+INLINE_BLOCK16  set     1   ; 1 seem faster, but hard to tell
 
     XDEF    _RenderTile_RT_SQUARE
     XDEF    _RenderTile_RT_TRANSPARENT
@@ -25,7 +26,7 @@ BYTE_INDEX_MODE set     0   ; 1 = experimental index mode on v4
     XREF    __ZN3dvl10gpBufStartE
     XREF    __ZN3dvl8gpBufEndE
 
-    XREF    __ZN3dvl8lightmaxE
+*   XREF    __ZN3dvl8lightmaxE
     XREF    __ZN3dvl17light_table_indexE
     XREF    _ac68080_ammx
 
@@ -615,45 +616,46 @@ _RenderLine2
 
 *------------------------------------------------------------------------------------
     xdef    _setup
+    
+m68k_render
+    dc.l    _RenderLine0
+    REPT    14
+    dc.l    _RenderLine2
+    ENDR
+    dc.l    _RenderLine1
+    
+ammx_render
+    dc.l    _RenderLine0_AMMX
+    REPT    14
+    dc.l    _RenderLine2_AMMX
+    ENDR
+    dc.l    _RenderLine1_AMMX
 
 * a3 = stack params ptr
 * a4 = .epilogue
 _setup
     movea.l (a3)+,a0    ; \ points to bottom
     movea.l (a3)+,a1    ; / fused
+    cmpa.l  __ZN3dvl10gpBufStartE,a0
+    bcc.b   .ok
+*   move.l  a4,(sp)     ; tile largely above top of screen
+*   rts                 ; just goto epilogue
+    addq.l  #4,sp
+    jmp     (a4)
+.ok
+    move.l  __ZN3dvl17light_table_indexE,d2
+.table
+    lea     m68k_render.l,a4
     movea.l (a3)+,a2    ; \ fused
     movea.l (a3)+,a3    ; /
     addq.l  #4,a3       ; point to start
-    cmpa.l  __ZN3dvl10gpBufStartE,a0
-    bcc.b   .ok
-    move.l  a4,(sp)     ; tile largely above top of screen
-    rts                 ; just goto epilogue
-.ok
     movea.l __ZN3dvl8gpBufEndE,a5
-.ammx
-    tst.b   _ac68080_ammx
-    beq.b   .m68k
-    lea     _RenderLine0_AMMX(pc),a4
-    move.l  __ZN3dvl17light_table_indexE,d2
-    beq.b   .patch
-    sub.b   __ZN3dvl8lightmaxE,d2
-    lea     _RenderLine2_AMMX(pc),a4
-    bne.b   .patch
-    lea     _RenderLine1_AMMX(pc),a4
-* remove initial comparison so that it now only costs 1 cycle
+    move.l  (a4,d2.l*4),a4
 .patch
-    move.w  #$203c,.ammx       ; move.l #nnnn,d0
-    move.w  #$7200,.ammx+6     ; moveq  #0,d1
-    move.w  #$4e75,.patch      ; #rts
-    rts                        ; no need to ClearCacheU on apollo!
-.m68k
-    lea     _RenderLine0(pc),a4
-    move.l  __ZN3dvl17light_table_indexE,d2
+    tst.b   _ac68080_ammx
     beq.b   .done
-    sub.b   __ZN3dvl8lightmaxE,d2
-    lea     _RenderLine2(pc),a4
-    bne.b   .done
-    lea     _RenderLine1(pc),a4
+    move.l  #ammx_render,.table+2   ; change table for ammx
+    move.w  #$4e75,.patch ; #rts
 .done
     rts
 
@@ -741,7 +743,7 @@ _RenderTile_RT_TRANSPARENT
 
 *------------------------------------------------------------------------------------
 
-block16 macro
+block16_ macro
     REPT    16
     moveq   #32,d0
     move.l  -(a3),d1
@@ -750,7 +752,7 @@ block16 macro
     ENDR
     endm
 
-triangL macro
+triangL_ macro
 .i  set     30
     add.w   #.i,a0
     REPT    16
@@ -767,7 +769,7 @@ triangL macro
     ENDR
     endm
 
-triangR macro
+triangR_ macro
 .i  set     30
     REPT    16
     moveq   #32-.i,d0
@@ -780,7 +782,42 @@ triangR macro
 .i  set     .i-2
     ENDR
     endm
-
+    
+  ifeq  INLINE_BLOCK16
+  
+_block16
+    block16_
+    rts
+_triangL
+    triangL_
+    rts
+_triangR
+    triangR_
+    rts  
+block16 macro
+    bsr   _block16
+    endm
+triangL macro
+    bsr   _triangL
+    endm
+triangR macro
+    bsr   _triangR
+    endm
+  
+  else
+  
+block16 macro
+    block16_
+    endm
+triangL macro
+    triangL_
+    endm
+triangR macro
+    triangR_
+    endm
+    
+  endc
+  
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_SQUARE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
 _RenderTile_RT_SQUARE
