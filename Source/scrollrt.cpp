@@ -479,17 +479,18 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag);
 
 static void drawRow(int x, int y, int sx, int sy, int eflag)
 {
+// #undef __mc68000__
 #ifdef __mc68000__ // this code is better for gcc
 	BYTE *dst = &gpBuffer[sx + (unsigned short)sy * (unsigned short)BUFFER_WIDTH];	
 	int xy= (unsigned short)x*(unsigned short)MAXDUNY+y;	
 #define xy(T) (&T[0][0]+xy)[0]
 	WORD *mt = &xy(dpiece_defs_map_2).mt[0];
 
-	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[xy(dTransVal)]);
-	
 	level_piece_id = xy(dPiece);
 	light_table_index = xy(dLight);
 
+	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[xy(dTransVal)]);
+	
 	arch_draw_type = 1;
 	if ((level_cel_block = *mt++)) drawUpperScreen(dst);
 	
@@ -499,10 +500,8 @@ static void drawRow(int x, int y, int sx, int sy, int eflag)
 	arch_draw_type = 0;
 	for(WORD i = MicroTileLen>>1; --i>0;) {
 		dst -= BUFFER_WIDTH * 32;
-		level_cel_block = *mt++;
-		if (level_cel_block != 0) drawUpperScreen(dst);
-		level_cel_block = *mt++;
-		if (level_cel_block != 0) drawUpperScreen(dst + 32);
+		if ((level_cel_block = *mt++)) drawUpperScreen(dst);
+		if ((level_cel_block = *mt++)) drawUpperScreen(dst + 32);
 	}
 	
 #else
