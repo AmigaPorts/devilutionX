@@ -131,14 +131,15 @@ REGPARM char _smk_bs_read_1(struct smk_bit_t* bs)
     register unsigned char ret     asm("d0");
     register struct smk_bit_t* bs_ asm("a0") = bs;
     __asm__ __volatile__ (
-    "   move.l  (a0),d0     \n"
-    "   lsr.l   #1,d0       \n"
+    "   move.l  (a0),d1     \n"
+    "   lsr.l   #1,d1       \n"
     "   bne.b   .result%=   \n"
     CALL_REFILL("%2")
-    "   lsr.l   #1,d0       \n"
+	"	move.l	d0,d1		\n"
+    "   lsr.l   #1,d1       \n"
     ".result%=:             \n"
-    "   move.l  d0,(a0)     \n"
     "   moveq   #0,d0       \n"
+    "   move.l  d1,(a0)     \n"
     "   addx.l  d0,d0       \n"
     : "=d" (ret) : "a" (bs_), "m"(_smk_refill)
     : "d1","a1","a0" );
