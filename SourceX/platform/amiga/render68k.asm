@@ -131,7 +131,8 @@ _RenderLine1_AMMX
     storem  d2,d1,(a0)+
     endm
 .m0 macro
-    rol_d1_mask
+    bfclr   d1{d0:8}
+    rol.l   #8,d1
     storem  d2,d1,(a0)
     endm
 
@@ -163,8 +164,9 @@ _RenderLine0_AMMX
     storem  d2,d1,(a0)+
     endm
 .m0 macro
-    rol_d1_mask
     load    (a1),d2
+    bfclr   d1{d0:8}
+    rol.l   #8,d1
     storem  d2,d1,(a0)
     endm
 
@@ -338,16 +340,17 @@ _RenderLine2_AMMX
     storem  d2,d1,(a0)+
     endm
 .m0 macro
+    bfclr   d1{d0:8}
     move.l  (a1),d3         ; F(used)  d3=AABBCCDD
     move.l  4(a1),d5        ; F  1
-    rol_d1_mask
     transform
     vperm   #$4567CDEF,d2,d4,d2
+    rol.l   #8,d1
     storem  d2,d1,(a0)
     endm
 
-    move.l  d1,d3               ; \ fused
-    addq.l  #1,d3               ; /
+    move.l  d1,d3           ; \ fused
+    addq.l  #1,d3           ; /
     bne     .mask
     binAMMX .n8,.n0,%11
 .maskAA
