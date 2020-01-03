@@ -638,18 +638,15 @@ _setup
     movea.l (a3)+,a1    ; / fused
     cmpa.l  __ZN3dvl10gpBufStartE,a0
     bcc.b   .ok
-*   move.l  a4,(sp)     ; tile largely above top of screen
-*   rts                 ; just goto epilogue
-    addq.l  #4,sp
-    jmp     (a4)
-.ok
-    move.l  __ZN3dvl17light_table_indexE,d2
+    addq.l  #4,sp       ; tile largely above top of screen
+    jmp     (a4)        ; just goto epilogue
+.ok move.l  __ZN3dvl17light_table_indexE,d2
 .table
     lea     m68k_render.l,a4
     movea.l (a3)+,a2    ; \ fused
     movea.l (a3)+,a3    ; /
-    addq.l  #4,a3       ; point to start
     movea.l __ZN3dvl8gpBufEndE,a5
+    addq.l  #4,a3       ; point to start
     move.l  (a4,d2.l*4),a4
 .patch
     tst.b   _ac68080_ammx
@@ -707,38 +704,69 @@ epilogue_11 macro
 
 _RenderTile_RT_TRANSPARENT
     prologue_11
-    move.w  #32,a6
-.L1
-    move.l  -(a3),d6        ; m = *mask; mask--
-    moveq   #32,d7
-    subq.l  #1,a6
-    moveq   #0,d0           ; TODO: remove ?
-.L2
-    move.b  (a1)+,d0
-    bgt.b   .L3
+    move.w  #32,a6              ; p1
+    moveq   #0,d0               ; p2
+.L1 move.l  -(a3),d6            ; p1
+    subq.l  #1,a6               ; p2
+    moveq   #32,d7              ; p1
+    move.b  (a1)+,d0            ; p2
+    bgt     .L4                 ; p1
+    bra     .L3                 ; p2
+.L2 move.l  d6,d1               ; p2   
+    lsl.l   d0,d6               ; p1
+    jsr     (a4)                ; p1 
+    move.b  (a1)+,d0            ; p1
+    bgt     .L4                 ; p1
+.L3 add.b   d0,d7               ; p2
+    beq     .L6                 ; p1
+    neg.b   d0                  ; p2
+    adda.l  d0,a0               ; p1
+    lsl.l   d0,d6               ; p2
+    move.b  (a1)+,d0            ; p1
+    ble     .L3                 ; p1
+.L4 sub.b   d0,d7               ; p2 
+    bne     .L2                 ; p1
+    move.l  d6,d1               ; p2   
+    jsr     (a4)                ; p1
+    sub.w   #BUFFER_WIDTH+32,a0 ; p1
+    tst.l   a6                  ; p2
+    bne     .L1                 ; p1
+    epilogue_11
+.L6 suba.w  #BUFFER_WIDTH+32-256,a0 ; p2
+    tst.l   a6                  ; p1
+    suba.w  d0,a0               ; p2
+    bne     .L1                 ; p1
+    bra     .epilogue           ; p2
+
+_RenderTile_RT_TRANSPARENTorig
+    prologue_11
+    move.w  #32,a6          ; p1
+    moveq   #0,d0           ; p2
+.L1 move.l  -(a3),d6        ; p1 m = *mask; mask--
+    subq.l  #1,a6           ; p2
+    moveq   #32,d7          ; p1
+.L2 move.b  (a1)+,d0        ; p2
+    bgt.b   .L3             ; p1
 .L22
-    neg.b   d0              ; p1
+    neg.b   d0              ; p2
     lsl.l   d0,d6           ; p1
     sub.l   d0,d7           ; p2
     adda.l  d0,a0           ; p1 doesnt affect the flags
-    beq.b   .L5             ; p2 likely be false
+    beq.b   .L5             ; p1 likely be false
     move.b  (a1)+,d0        ; p1
     ble.b   .L22            ; p1 more likely to be false at this point
-.L3
-    move.l  d6,d1
-    lsl.l   d0,d6
-    sub.l   d0,d7
-    beq.b   .L4             ; likely to be false most of the times
-    jsr     (a4)
-    move.b  (a1)+,d0
-    bgt.b   .L3             ; more likely at this point
-    bra     .L22
-.L4
-    jsr     (a4)
-.L5
-    tst.l   a6
-    sub.w   #BUFFER_WIDTH+32,a0
-    bne     .L1
+.L3 move.l  d6,d1           ; p1
+    lsl.l   d0,d6           ; p2
+    sub.l   d0,d7           ; p1
+    beq.b   .L4             ; p1
+    jsr     (a4)            ; p1
+    move.b  (a1)+,d0        ; p1
+    bgt.b   .L3             ; p1
+    bra     .L22            ; p2
+.L4 jsr     (a4)            ; p1
+.L5 tst.l   a6              ; p1
+    sub.w   #BUFFER_WIDTH+32,a0   ; p2
+    bne     .L1             ; p1
     epilogue_11
 
 *------------------------------------------------------------------------------------
