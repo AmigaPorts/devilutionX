@@ -1093,7 +1093,7 @@ static void DrawFPS()
 		frameend++;
 		tc = GetTickCount();
 		frames = tc - framestart;
-		if (tc - framestart >= 1000) {
+		if (tc - framestart >= 1000*5) {
 			framestart = tc;
 			framerate = (1000 * frameend + frames/2) / frames;
 			frameend = 0;
