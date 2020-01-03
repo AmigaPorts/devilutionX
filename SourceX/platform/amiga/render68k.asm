@@ -72,12 +72,6 @@ chk_bounds  macro
 * -----------------------------------------------------------------------------
 * AMMX version
 
-* final extraction of a mask
-rol_d1_mask macro
-    bfclr   d1{d0:8}
-    rol.l   #8,d1
-    endm
-
 * binary search from 32 up to 7
 binAMMX macro
     inline
