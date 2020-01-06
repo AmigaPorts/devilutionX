@@ -1198,11 +1198,14 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 
 	DrawMain(hgt, 0, 0, 0, 0, 0);
 
-	if (draw_cursor) {
 #ifdef __AMIGA__
+	if(ac68080_saga) {
 		lock_buf(0);
 		unlock_buf(0); // forces flip before cursor restore display
+	}
 #endif
+
+	if (draw_cursor) {
 		lock_buf(0);
 		scrollrt_draw_cursor_back_buffer();
 		unlock_buf(0);
