@@ -1201,7 +1201,7 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 #ifdef __AMIGA__
 	if(ac68080_saga) {
 		lock_buf(0);
-		unlock_buf(0); // forces flip before cursor restore display
+		unlock_buf(0); // forces flip before cursor restore display when in saga mode
 	}
 #endif
 
@@ -1270,8 +1270,10 @@ void DrawAndBlit()
 	DrawMain(hgt, ddsdesc, drawhpflag, drawmanaflag, drawsbarflag, drawbtnflag);
 
 #ifdef __AMIGA__
-	lock_buf(0);
-	unlock_buf(0); // forces flip before cursor restore display
+	if(ac68080_saga) {
+		lock_buf(0);
+		unlock_buf(0); // forces flip before cursor restore display when in saga mode
+	}
 #endif
 
 	lock_buf(0);
