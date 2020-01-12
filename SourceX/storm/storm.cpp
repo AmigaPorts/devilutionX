@@ -628,8 +628,15 @@ BOOL SVidLoadNextFrame()
 
 BOOL SVidPlayContinue(void)
 {
+#ifdef __AMIGA__
+	static SDL_Color colors[256];
+	static unsigned char palette_changed = 0;
+#endif
+
 	if (smk_palette_updated(SVidSMK)) {
+#ifndef __AMIGA__
 		SDL_Color colors[256];
+#endif
 		const unsigned char *palette_data = smk_get_palette(SVidSMK);
 
 		for (int i = 0; i < 256; i++) {
@@ -647,10 +654,14 @@ BOOL SVidPlayContinue(void)
 		}
 		memcpy(logical_palette, orig_palette, 1024);
 
+#ifdef __AMIGA__
+		palette_changed = 255;
+#else
 		if (SDLC_SetSurfaceAndPaletteColors(SVidSurface, SVidPalette, colors, 0, 256) <= -1) {
 			SDL_Log(SDL_GetError());
 			return false;
 		}
+#endif
 	}
 
 	if (SDL_GetTicks() * 1000 >= SVidFrameEnd) {
@@ -731,6 +742,16 @@ BOOL SVidPlayContinue(void)
 		SDL_FreeSurface(tmp);
 	}
 
+#ifdef __AMIGA__
+	// change the palette the closest to screen wap, otherwise since decodign frames
+	// takes time, we see the palette change on the previous image typically resutling
+	// in white spots here and there
+	if (palette_changed 
+	&& SDLC_SetSurfaceAndPaletteColors(SVidSurface, SVidPalette, colors, 0, 256) <= -1) {
+		SDL_Log(SDL_GetError());
+		return false;
+	}
+#endif
 	bufferUpdated = true;
 	RenderPresent();
 
