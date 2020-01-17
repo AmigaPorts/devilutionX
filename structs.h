@@ -1206,6 +1206,7 @@ typedef struct DeadStruct {
 typedef struct _gamedata {
 	int dwSeed;
 	BYTE bDiff;
+	BYTE __pad[3]; // sam : added adding so that sizeof()==8 and not 6 on bigendian machines
 } _gamedata;
 
 typedef struct _uidefaultstats {
