@@ -299,13 +299,17 @@ transfAA55 macro
   ifeq  \1
     tst.b   d0
     beq.b   .bb0
-    move.b  (a1)+,(a0)+
+    move.b  (a1)+,d2      ; 1
+; 2 bubbles
+    move.b  (a2,d2.w),d1  ; 4
+    move.b  d1,(a0)+      ; 5
 .bb0
+    rts
   else
     add.w   d0,a0
     add.w   d0,a1
-  endc
     rts
+  endc
     einline
   endm
 
