@@ -55,27 +55,22 @@ typedef struct _WSIZE
 
 struct CCritSect {
 	CRITICAL_SECTION m_critsect;
-	bool valid;
 
 	CCritSect()
 	{
-		valid = true;
 		InitializeCriticalSection(&m_critsect);
 	}
 	~CCritSect()
 	{
-		valid = false;
 		DeleteCriticalSection(&m_critsect);
 	}
 	
 	void Enter()
 	{
-		if(valid)
 		EnterCriticalSection(&m_critsect);
 	}
 	void Leave()
 	{
-		if(valid)
 		LeaveCriticalSection(&m_critsect);
 	}
 };
