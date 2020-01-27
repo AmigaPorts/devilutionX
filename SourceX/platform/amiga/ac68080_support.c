@@ -100,9 +100,17 @@ size_t __stack = MINSTACK;        	/* ixemul, vbcc */
 #define USE_DL_PREFIX
 
 #define SANITY_CHK			0
+#define DO_WRAPPERS			1
 
+#ifdef DO_WRAPPERS
+#define lower_malloc		__real_malloc
+#define	lower_free			__real_free
+extern void *lower_malloc(size_t);
+extern void  lower_free(void *);
+#else
 #define lower_malloc		malloc
 #define	lower_free			free
+#endif
 
 #define HAVE_MORECORE 		0
 
@@ -127,6 +135,10 @@ static void* MMAP(size_t len)
 	}
 	printf("MMAP(%d) = %p\n", len, p);
 #endif
+	if(!p) {
+		printf("Out of memory (%d bytes requested).\n", len+4);
+		dlmalloc_stats();
+	}
 	return p;
 }
 
@@ -149,6 +161,25 @@ static int MUNMAP(void *p, size_t len)
 }
 
 #include "malloc.c"
+
+#ifdef DO_WRAPPERS
+void *__wrap_malloc(size_t size)
+{
+	return dlmalloc(size);
+}
+void __wrap_free(void *ptr)
+{
+	dlfree(ptr);
+}
+void *__wrap_realloc(void *ptr, size_t size)
+{
+	return dlrealloc(ptr, size);
+}
+void *__wrap_calloc(size_t num, size_t size)
+{
+	return dlcalloc(num,size);
+}
+#endif
 
 /*****************************************************************************/
 

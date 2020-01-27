@@ -2,7 +2,7 @@ set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR m68k)
 
 # CPU
-set(M68K_CPU_TYPES "68000" "68010" "68020" "68040" "68060")
+set(M68K_CPU_TYPES "68000" "68010" "68020" "68040" "68060" "68080")
 set(M68K_CPU "68000" CACHE STRING "Target CPU model")
 set_property(CACHE M68K_CPU PROPERTY STRINGS ${M68K_CPU_TYPES})
 
@@ -72,7 +72,11 @@ set(CMAKE_EXE_LINKER_FLAGS "-lpthread -lSDL_mixer -Wl,--whole-archive -lSDL -lSD
 foreach(_wrapped
 	memcpy
 	memset
-	memcmp)
+	memcmp
+	malloc
+	free
+	realloc
+	calloc)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=${_wrapped}")
 endforeach(_wrapped)
 
