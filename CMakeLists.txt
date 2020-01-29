@@ -19,16 +19,6 @@ option(NIGHTLY_BUILD "Enable options for nightly build" OFF)
 option(USE_SDL1 "Use SDL1.2 instead of SDL2" OFF)
 option(NONET "Disable network" OFF)
 
-include(CMake/git.cmake)
-get_git_tag(GIT_TAG)
-if(NOT CMAKE_BUILD_TYPE MATCHES "Release")
-  get_git_commit_hash(GIT_COMMIT_HASH)
-endif()
-
-project(DevilutionX
-  VERSION ${GIT_TAG}
-  LANGUAGES C CXX ASM)
-
 if(BINARY_RELEASE)
   set(CMAKE_BUILD_TYPE "Release")
   set(ASAN OFF)
@@ -57,7 +47,7 @@ endif()
 
 project(DevilutionX
   VERSION ${GIT_TAG}
-  LANGUAGES C CXX)
+  LANGUAGES C CXX ASM)
 
 if(LTO)
   # Use LTO on compilers where it is supported.

@@ -97,20 +97,15 @@ size_t __stack = MINSTACK;        	/* ixemul, vbcc */
 /*****************************************************************************/
 /* malloc replacement */
 
+#define SANITY_CHK			0
+#define REPLACE_SYS_MALLOC	1
+
 #define USE_DL_PREFIX
 
-#define SANITY_CHK			0
-#define DO_WRAPPERS			1
-
-#ifdef DO_WRAPPERS
 #define lower_malloc		__real_malloc
 #define	lower_free			__real_free
 extern void *lower_malloc(size_t);
 extern void  lower_free(void *);
-#else
-#define lower_malloc		malloc
-#define	lower_free			free
-#endif
 
 #define HAVE_MORECORE 		0
 
@@ -162,24 +157,42 @@ static int MUNMAP(void *p, size_t len)
 
 #include "malloc.c"
 
-#ifdef DO_WRAPPERS
 void *__wrap_malloc(size_t size)
 {
+#if REPLACE_SYS_MALLOC
 	return dlmalloc(size);
+#else
+	return __real_malloc(size);
+#endif
 }
 void __wrap_free(void *ptr)
 {
+#if REPLACE_SYS_MALLOC
 	dlfree(ptr);
+#else
+	__real_free(ptr);
+#endif
 }
+
 void *__wrap_realloc(void *ptr, size_t size)
 {
+#if REPLACE_SYS_MALLOC
 	return dlrealloc(ptr, size);
+#else
+	extern void *__real_realloc(void *ptr, size_t size);
+	return __real_realloc(ptr,size);
+#endif
 }
+
 void *__wrap_calloc(size_t num, size_t size)
 {
-	return dlcalloc(num,size);
-}
+#if REPLACE_SYS_MALLOC
+	return dlcalloc(num, size);
+#else
+	extern void *__real_calloc(size_t num, size_t size);
+	return __real_calloc(num,size);
 #endif
+}
 
 /*****************************************************************************/
 
