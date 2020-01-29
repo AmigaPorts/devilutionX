@@ -16,8 +16,7 @@ devilution-comparer
 comparer-config.toml
 
 #ignore cmake cache
-/build/
-/build32/
+/build-*/
 .vscode/tasks.json
 
 # ELF object file.

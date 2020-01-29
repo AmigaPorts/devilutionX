@@ -8,11 +8,6 @@
 #include "DiabloUI/diabloui.h"
 #include "DiabloUI/dialogs.h"
 
-#ifdef _MSC_VER
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#endif
-
 #if defined(USE_SDL1) && defined(RETROFW)
 #include <unistd.h>
 #endif
@@ -24,21 +19,15 @@
 #ifndef SDL1_VIDEO_MODE_FLAGS
 #define SDL1_VIDEO_MODE_FLAGS SDL_SWSURFACE
 #endif
+#ifndef SDL1_VIDEO_MODE_WIDTH
+#define SDL1_VIDEO_MODE_WIDTH nWidth
+#endif
+#ifndef SDL1_VIDEO_MODE_HEIGHT
+#define SDL1_VIDEO_MODE_HEIGHT nHeight
+#endif
 #endif
 
 namespace dvl {
-
-DWORD last_error;
-
-DWORD GetLastError()
-{
-	return last_error;
-}
-
-void SetLastError(DWORD dwErrCode)
-{
-	last_error = dwErrCode;
-}
 
 int wsprintfA(LPSTR dest, LPCSTR format, ...)
 {
@@ -62,26 +51,6 @@ int _strnicmp(const char *_Str1, const char *_Str2, size_t n)
 	return strncasecmp(_Str1, _Str2, n);
 }
 
-char *_itoa(int _Value, char *_Dest, int _Radix)
-{
-	switch (_Radix) {
-	case 8:
-		sprintf(_Dest, "%o", _Value);
-		break;
-	case 10:
-		sprintf(_Dest, "%d", _Value);
-		break;
-	case 16:
-		sprintf(_Dest, "%x", _Value);
-		break;
-	default:
-		UNIMPLEMENTED();
-		break;
-	}
-
-	return _Dest;
-}
-
 DWORD GetTickCount()
 {
 	return SDL_GetTicks();
@@ -90,14 +59,6 @@ DWORD GetTickCount()
 void Sleep(DWORD dwMilliseconds)
 {
 	SDL_Delay(dwMilliseconds);
-}
-
-WINBOOL GetComputerNameA(LPSTR lpBuffer, LPDWORD nSize)
-{
-	DUMMY();
-	strncpy(lpBuffer, "localhost", *nSize);
-	*nSize = strlen(lpBuffer);
-	return true;
 }
 
 WINBOOL DeleteFileA(LPCSTR lpFileName)
@@ -118,6 +79,24 @@ WINBOOL DeleteFileA(LPCSTR lpFileName)
 	return true;
 }
 
+namespace {
+
+#ifdef USE_SDL1
+void InitVideoMode(int width, int height, int bpp, std::uint32_t flags)
+{
+	const auto &best = *SDL_GetVideoInfo();
+	SDL_Log("Best video mode reported as: %dx%d bpp=%d hw_available=%u",
+	    best.current_w, best.current_h, best.vfmt->BitsPerPixel, best.hw_available);
+	SDL_Log("Setting video mode %dx%d bpp=%u flags=0x%08X", width, height, bpp, flags);
+	SDL_SetVideoMode(width, height, bpp, flags);
+	const auto &current = *SDL_GetVideoInfo();
+	SDL_Log("Video mode is now %dx%d bpp=%u",
+	    current.current_w, current.current_h, current.vfmt->BitsPerPixel);
+}
+#endif
+
+} // namespace
+
 bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 {
 	if (SDL_Init(SDL_INIT_EVERYTHING & ~SDL_INIT_HAPTIC) <= -1) {
@@ -128,12 +107,15 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 
 #ifdef USE_SDL1
 	SDL_EnableUNICODE(1);
+#endif
+#if defined(USE_SDL1) || defined(__SWITCH__)
 	InitController();
 #endif
 
 	int upscale = 1;
 	DvlIntSetting("upscale", &upscale);
-	DvlIntSetting("fullscreen", (int *)&fullscreen);
+	if (fullscreen)
+		DvlIntSetting("fullscreen", (int *)&fullscreen);
 
 	int grabInput = 1;
 	DvlIntSetting("grab input", &grabInput);
@@ -144,14 +126,14 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 		flags |= SDL_FULLSCREEN;
 	SDL_WM_SetCaption(lpWindowName, WINDOW_ICON_NAME);
 #ifndef RETROFW
-	SDL_SetVideoMode(nWidth, nHeight, SDL1_VIDEO_MODE_BPP, flags);
+	InitVideoMode(SDL1_VIDEO_MODE_WIDTH, SDL1_VIDEO_MODE_HEIGHT, SDL1_VIDEO_MODE_BPP, flags);
 #else // RETROFW
 	// JZ4760 IPU scaler (e.g. on RG-300 v2/3) - automatic high-quality scaling.
 	if (access("/proc/jz/ipu", F_OK) == 0 || access("/proc/jz/ipu_ratio", F_OK) == 0) {
-		SDL_SetVideoMode(nWidth, nHeight, SDL1_VIDEO_MODE_BPP, flags);
+		InitVideoMode(SDL1_VIDEO_MODE_WIDTH, SDL1_VIDEO_MODE_HEIGHT, SDL1_VIDEO_MODE_BPP, flags);
 	} else {
 		// Other RetroFW devices have 320x480 screens with non-square pixels.
-		SDL_SetVideoMode(320, 480, SDL1_VIDEO_MODE_BPP, flags);
+		InitVideoMode(320, 480, SDL1_VIDEO_MODE_BPP, flags);
 	}
 #endif
 	window = SDL_GetVideoSurface();
@@ -183,6 +165,10 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 
 #ifdef USE_SDL1
 	refreshDelay = 1000000 / 60; // 60hz
+#else
+	SDL_DisplayMode mode;
+	SDL_GetDisplayMode(0, 0, &mode);
+	refreshDelay = 1000000 / mode.refresh_rate;
 #endif
 
 	if (upscale) {
@@ -202,12 +188,6 @@ bool SpawnWindow(LPCSTR lpWindowName, int nWidth, int nHeight)
 		if (SDL_RenderSetLogicalSize(renderer, nWidth, nHeight) <= -1) {
 			ErrSdl();
 		}
-#endif
-	} else {
-#ifndef USE_SDL1
-		SDL_DisplayMode mode;
-		SDL_GetDisplayMode(0, 0, &mode);
-		refreshDelay = 1000000 / mode.refresh_rate;
 #endif
 	}
 

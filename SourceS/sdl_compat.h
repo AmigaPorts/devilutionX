@@ -3,6 +3,8 @@
 #include <SDL.h>
 
 #ifndef USE_SDL1
+#define SDLC_KEYSTATE_LEFTCTRL SDL_SCANCODE_LCTRL
+#define SDLC_KEYSTATE_RIGHTCTRL SDL_SCANCODE_RCTRL
 #define SDLC_KEYSTATE_LEFTSHIFT SDL_SCANCODE_LSHIFT
 #define SDLC_KEYSTATE_RIGHTSHIFT SDL_SCANCODE_RSHIFT
 #define SDLC_KEYSTATE_MENU SDL_SCANCODE_MENU
@@ -22,6 +24,8 @@ extern "C"
 	extern SDL_Surface *vampire_MakeTripleBuffer(SDL_Surface *surf);
 } //extern C
 #endif
+#define SDLC_KEYSTATE_LEFTCTRL SDLK_LCTRL
+#define SDLC_KEYSTATE_RIGHTCTRL SDLK_RCTRL
 #define SDLC_KEYSTATE_LEFTSHIFT SDLK_LSHIFT
 #define SDLC_KEYSTATE_RIGHTSHIFT SDLK_LSHIFT
 #define SDLC_KEYSTATE_MENU SDLK_MENU
@@ -53,11 +57,7 @@ inline int SDLC_SetColorKey(SDL_Surface *surface, Uint32 key)
 inline int SDLC_SetSurfaceColors(SDL_Surface *surface, SDL_Color *colors, int firstcolor, int ncolors)
 {
 #ifdef USE_SDL1
-	int flags = SDL_LOGPAL;
-#if SDL1_VIDEO_MODE_BPP == 8
-	flags |= SDL_PHYSPAL;
-#endif
-	return SDL_SetPalette(surface, flags, colors, firstcolor, ncolors) - 1;
+	return SDL_SetPalette(surface, SDL_LOGPAL, colors, firstcolor, ncolors) - 1;
 #else
 	return SDL_SetPaletteColors(surface->format->palette, colors, firstcolor, ncolors);
 #endif

@@ -1,5 +1,6 @@
 #include <cstdio>
-#include <set>
+#include <cstring>
+#include <unordered_set>
 #include <string>
 #include <iterator>
 #include <vector>
@@ -19,7 +20,7 @@ struct memfile {
 	std::size_t pos = 0;
 };
 
-static std::set<memfile *> files;
+static std::unordered_set<memfile *> files;
 
 HANDLE CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
     LPSECURITY_ATTRIBUTES lpSecurityAttributes, DWORD dwCreationDisposition,
@@ -27,7 +28,7 @@ HANDLE CreateFileA(LPCSTR lpFileName, DWORD dwDesiredAccess, DWORD dwShareMode,
 {
 	char name[DVL_MAX_PATH];
 	TranslateFileName(name, sizeof(name), lpFileName);
-	DUMMY_PRINT("file: %s (%s)", lpFileName, name);
+	SDL_Log("file: %s (%s)", lpFileName, name);
 	UNIMPLEMENTED_UNLESS(!(dwDesiredAccess & ~(DVL_GENERIC_READ | DVL_GENERIC_WRITE)));
 	memfile *file = new memfile;
 	file->path = name;
@@ -54,7 +55,7 @@ WINBOOL ReadFile(HANDLE hFile, LPVOID lpBuffer, DWORD nNumberOfBytesToRead, LPDW
 	memfile *file = static_cast<memfile *>(hFile);
 	UNIMPLEMENTED_UNLESS(!lpOverlapped);
 	size_t len = std::min<size_t>(file->buf.size() - file->pos, nNumberOfBytesToRead);
-	std::copy(file->buf.begin() + file->pos, file->buf.begin() + file->pos + len, static_cast<char *>(lpBuffer));
+	std::memcpy(lpBuffer, file->buf.data() + file->pos, len);
 	file->pos += len;
 	*lpNumberOfBytesRead = len;
 	return true;
@@ -75,9 +76,7 @@ WINBOOL WriteFile(HANDLE hFile, LPCVOID lpBuffer, DWORD nNumberOfBytesToWrite,
 		return true;
 	if (file->buf.size() < file->pos + nNumberOfBytesToWrite)
 		file->buf.resize(file->pos + nNumberOfBytesToWrite);
-	std::copy(static_cast<const char *>(lpBuffer),
-	    static_cast<const char *>(lpBuffer) + nNumberOfBytesToWrite,
-	    file->buf.begin() + file->pos);
+	std::memcpy(file->buf.data() + file->pos, lpBuffer, nNumberOfBytesToWrite);
 	file->pos += nNumberOfBytesToWrite;
 	*lpNumberOfBytesWritten = nNumberOfBytesToWrite;
 	return true;
@@ -93,6 +92,7 @@ DWORD SetFilePointer(HANDLE hFile, LONG lDistanceToMove, PLONG lpDistanceToMoveH
 		file->pos += lDistanceToMove;
 	} else {
 		UNIMPLEMENTED();
+
 	}
 	if (file->buf.size() < file->pos + 1)
 		file->buf.resize(file->pos + 1);
@@ -106,37 +106,21 @@ WINBOOL SetEndOfFile(HANDLE hFile)
 	return true;
 }
 
-DWORD GetFileAttributesA(LPCSTR lpFileName)
-{
-	char name[DVL_MAX_PATH];
-	TranslateFileName(name, sizeof(name), lpFileName);
-	std::ifstream filestream(name, std::ios::binary);
-	if (filestream.fail()) {
-		SetLastError(DVL_ERROR_FILE_NOT_FOUND);
-		return (DWORD)-1;
-	}
-	return 0x80;
-}
-
-WINBOOL SetFileAttributesA(LPCSTR lpFileName, DWORD dwFileAttributes)
-{
-	return true;
-}
-
 void ShowOutOfDiskError()
 {
-	char *text = "Failed to save, please free some disk space and try again.";
+	constexpr char text[] = "Failed to save, please free some disk space and try again.";
 	UiErrorOkDialog("Out of Disk Space", text);
 }
 
 WINBOOL CloseHandle(HANDLE hObject)
 {
 	memfile *file = static_cast<memfile *>(hObject);
-	if (files.find(file) == files.end())
+	const auto file_it = files.find(file);
+	if (file_it == files.end())
 		return CloseEvent(hObject);
 	std::unique_ptr<memfile> ufile(file); // ensure that delete file is
 	                                      // called on returning
-	files.erase(file);
+	files.erase(file_it);
 	std::ofstream filestream(file->path + ".tmp", std::ios::binary | std::ios::trunc);
 	if (filestream.fail()) {
 		ShowOutOfDiskError();

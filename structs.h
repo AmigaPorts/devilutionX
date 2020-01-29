@@ -1333,7 +1333,7 @@ typedef struct _SNETUIDATA {
 	void(* profilecallback)();
 	int profilefields;
 	void(* profilebitmapcallback)();
-	int(__stdcall *selectnamecallback)(
+	int(*selectnamecallback)(
 	    const struct _SNETPROGRAMDATA *,
 	    const struct _SNETPLAYERDATA *,
 	    const struct _SNETUIDATA *,

@@ -49,6 +49,16 @@ if(NIGHTLY_BUILD)
   set(FASTER OFF)
 endif()
 
+include(CMake/git.cmake)
+get_git_tag(GIT_TAG)
+if(NOT CMAKE_BUILD_TYPE MATCHES "Release")
+  get_git_commit_hash(GIT_COMMIT_HASH)
+endif()
+
+project(DevilutionX
+  VERSION ${GIT_TAG}
+  LANGUAGES C CXX)
+
 if(LTO)
   # Use LTO on compilers where it is supported.
   include(CheckIPOSupported)
@@ -75,6 +85,10 @@ endif()
 
 if(RG350)
   include(rg350_defs)
+endif()
+
+if (GKD350H)
+  include(gkd350h_defs)
 endif()
 
 if(RETROFW)
@@ -251,6 +265,7 @@ set(devilutionx_SRCS
   SourceX/controls/controller_motion.cpp
   SourceX/controls/game_controls.cpp
   SourceX/controls/menu_controls.cpp
+  SourceX/controls/modifier_hints.cpp
   SourceX/controls/plrctrls.cpp
   SourceX/controls/touch.cpp
   SourceX/miniwin/ddraw.cpp
@@ -286,13 +301,15 @@ set(devilutionx_SRCS
   SourceX/DiabloUI/selgame.cpp
   SourceX/DiabloUI/selhero.cpp
   SourceX/DiabloUI/selyesno.cpp
+  SourceX/DiabloUI/selok.cpp
   SourceX/DiabloUI/text_draw.cpp
   SourceX/DiabloUI/text.cpp
   SourceX/DiabloUI/title.cpp
   SourceX/DiabloUI/ttf_render_wrapped.cpp
   SourceX/main.cpp
-  ./Packaging/macOS/AppIcon.icns
-  ./Packaging/resources/CharisSILB.ttf)
+  Packaging/macOS/AppIcon.icns
+  Packaging/resources/CharisSILB.ttf
+  Packaging/windows/devilutionx.rc)
 
 if(NOT NONET)
   list(APPEND devilutionx_SRCS
@@ -318,7 +335,7 @@ if(AMIGA)
 	SourceX/platform/amiga/ac68080_support.c)
 endif()
 
-add_executable(${BIN_TARGET} MACOSX_BUNDLE ${devilutionx_SRCS})
+add_executable(${BIN_TARGET} WIN32 MACOSX_BUNDLE ${devilutionx_SRCS})
 
 configure_file(SourceS/config.h.in config.h @ONLY)
 target_include_directories(devilution PUBLIC Source SourceS ${CMAKE_CURRENT_BINARY_DIR})
@@ -364,6 +381,8 @@ endforeach(def_name)
 foreach(
   def_name
   TTF_FONT_PATH
+  SDL1_VIDEO_MODE_WIDTH
+  SDL1_VIDEO_MODE_HEIGHT
   SDL1_VIDEO_MODE_BPP
   SDL1_VIDEO_MODE_FLAGS
   HAS_KBCTRL
@@ -381,7 +400,6 @@ foreach(
   KBCTRL_BUTTON_LEFTSHOULDER
   KBCTRL_BUTTON_START
   KBCTRL_BUTTON_BACK
-  KBCTRL_MODIFIER_KEY
   KBCTRL_IGNORE_1
   JOY_AXIS_LEFTX
   JOY_AXIS_LEFTY
@@ -551,8 +569,4 @@ if(SWITCH)
   set(APP_VERSION ${PROJECT_VERSION})
   include(nx-utils)
   build_switch_binaries(${BIN_TARGET})
-endif()
-
-if(RETROFW OR RG350)
-  set_target_properties(${BIN_TARGET} PROPERTIES OUTPUT_NAME "devilutionx.dge")
 endif()
