@@ -210,7 +210,7 @@ static void start(void)
     atexit(stop);
 	
     if (SysBase->AttnFlags &(1 << 10)) {
-        ac68080_saga = 255; //!_ZN3dvl10fullscreenE; // disable if not fullscreen
+        ac68080_saga = _ZN3dvl10fullscreenE ? 255:0; // disable if not fullscreen
 
         bufmem = dlmemalign(32/* byte alignment for saga */, 3*FRAME_BUFFER_SZ);
 		if(bufmem) {
@@ -446,4 +446,19 @@ int simple_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
         d += dst->pitch;
     }
     return 0;
+}
+
+// get rid of SDL's saga detection because it isn't necessary
+// and produce garbage when not fullscreen during splash-logo-video
+extern int __real_SDL_VideoInit (const char *driver_name, Uint32 flags);
+int __wrap_SDL_VideoInit (const char *driver_name, Uint32 flags)
+{
+	ULONG bak = SysBase->AttnFlags; 
+	int ret;
+	
+	SysBase->AttnFlags &= ~(1 << 10);
+	ret = __real_SDL_VideoInit(driver_name, flags);
+	SysBase->AttnFlags = bak;
+	
+	return ret;
 }

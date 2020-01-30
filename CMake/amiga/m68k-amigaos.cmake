@@ -76,7 +76,8 @@ foreach(_wrapped
 	malloc
 	free
 	realloc
-	calloc)
+	calloc
+	SDL_VideoInit)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=${_wrapped}")
 endforeach(_wrapped)
 
