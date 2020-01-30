@@ -1204,8 +1204,7 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 
 #ifdef __AMIGA__
 	if(ac68080_saga) {
-		lock_buf(0);
-		unlock_buf(0); // forces flip before cursor restore display when in saga mode
+		RenderPresent(); // forces flip before cursor restore display when in saga mode
 	}
 #endif
 
@@ -1214,6 +1213,10 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 		scrollrt_draw_cursor_back_buffer();
 		unlock_buf(0);
 	}
+	
+#ifdef __AMIGA__
+	if(!ac68080_saga)
+#endif
 	RenderPresent();
 }
 
@@ -1276,14 +1279,16 @@ void DrawAndBlit()
 
 #ifdef __AMIGA__
 	if(ac68080_saga) {
-		lock_buf(0);
-		unlock_buf(0); // forces flip before cursor restore display when in saga mode
+		RenderPresent(); // forces flip before cursor restore display when in saga mode
 	}
 #endif
 
 	lock_buf(0);
 	scrollrt_draw_cursor_back_buffer();
 	unlock_buf(0);
+#ifdef __AMIGA__
+	if(!ac68080_saga)
+#endif
 	RenderPresent();
 
 	drawhpflag = FALSE;
