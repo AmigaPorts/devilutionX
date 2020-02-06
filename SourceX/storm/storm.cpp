@@ -589,7 +589,13 @@ void SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 		}
 	}
 #elif SDL1_VIDEO_MODE_BPP == 8
-	SDL_SetVideoMode(SVidWidth, SVidHeight, SDL1_VIDEO_MODE_BPP, GetOutputSurface()->flags);
+	SDL_SetVideoMode(SVidWidth, 
+#ifdef __AMIGA__ // fixes video not being centered
+					 SVidHeight<200?200:SVidHeight,
+#else
+					 SVidHeight, 
+#endif
+					 SDL1_VIDEO_MODE_BPP, GetOutputSurface()->flags);
 #endif
 	memcpy(SVidPreviousPalette, orig_palette, 1024);
 
@@ -634,8 +640,15 @@ BOOL SVidLoadNextFrame()
 
 BOOL SVidPlayContinue(void)
 {
+#ifdef __AMIGA__
+	static SDL_Color colors[256];
+	static unsigned char palette_changed = 0;
+#endif
+
 	if (smk_palette_updated(SVidSMK)) {
+#ifndef __AMIGA__
 		SDL_Color colors[256];
+#endif
 		const unsigned char *palette_data = smk_get_palette(SVidSMK);
 
 		for (int i = 0; i < 256; i++) {
@@ -653,10 +666,14 @@ BOOL SVidPlayContinue(void)
 		}
 		memcpy(logical_palette, orig_palette, 1024);
 
+#ifdef __AMIGA__
+		palette_changed = 255;
+#else
 		if (SDLC_SetSurfaceAndPaletteColors(SVidSurface, SVidPalette, colors, 0, 256) <= -1) {
 			SDL_Log(SDL_GetError());
 			return false;
 		}
+#endif
 	}
 
 	if (SDL_GetTicks() * 1000 >= SVidFrameEnd) {
@@ -685,6 +702,15 @@ BOOL SVidPlayContinue(void)
 			return false;
 		}
 	} else
+#endif
+#ifdef __AMIGA__
+	// speedup get rid of SDL here
+	if(GetOutputSurface()->pitch == SVidSurface->pitch
+	&& GetOutputSurface()->h     >= SVidSurface->h) {
+		SDL_Surface *out = GetOutputSurface();
+		unsigned char *dst = out->pixels + out->pitch*((out->h - SVidSurface->h)/2);
+		memcpy(dst, SVidSurface->pixels, SVidSurface->pitch*SVidSurface->h);
+	} else 
 #endif
 	{
 		int factor;
@@ -715,13 +741,29 @@ BOOL SVidPlayContinue(void)
 		Uint32 format = SDL_GetWindowPixelFormat(window);
 		SDL_Surface *tmp = SDL_ConvertSurfaceFormat(SVidSurface, format, 0);
 #endif
-		ScaleOutputRect(&pal_surface_offset);
+#ifndef __AMIGA__ 
+		// somehow this cann to ScaleOututputRect lead to pb with amiga's SDL:
+		// the rotating blizzard logo at startup freeze randomly.
+		// ==> so this operation is disabled on the amiga
+		ScaleOutputRect(&pal_surface_offset); 
+#endif
 		if (SDL_BlitScaled(tmp, NULL, GetOutputSurface(), &pal_surface_offset) <= -1) {
 			SDL_Log(SDL_GetError());
 			return false;
 		}
 		SDL_FreeSurface(tmp);
 	}
+
+#ifdef __AMIGA__
+	// change the palette the closest to screen wap, otherwise since decodign frames
+	// takes time, we see the palette change on the previous image typically resutling
+	// in white spots here and there
+	if (palette_changed 
+	&& SDLC_SetSurfaceAndPaletteColors(SVidSurface, SVidPalette, colors, 0, 256) <= -1) {
+		SDL_Log(SDL_GetError());
+		return false;
+	}
+#endif
 
 	RenderPresent();
 

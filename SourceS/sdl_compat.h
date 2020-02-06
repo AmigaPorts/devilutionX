@@ -13,6 +13,17 @@
 #define SDLC_KEYSTATE_LEFT SDL_SCANCODE_LEFT
 #define SDLC_KEYSTATE_RIGHT SDL_SCANCODE_RIGHT
 #else
+#if defined(__AMIGA__) // Add other systems that require an 8bit screen here
+extern "C"
+{
+	extern char ac68080_saga;
+	extern char ac68080_ammx;
+	extern int  vampire_Flip(SDL_Surface *surf);	
+	extern int  vampire_BlitSurface(SDL_Surface *src, SDL_Rect *srcRect,
+						     SDL_Surface *dst, SDL_Rect *dstRect);
+	extern SDL_Surface *vampire_MakeTripleBuffer(SDL_Surface *surf);
+} //extern C
+#endif
 #define SDLC_KEYSTATE_LEFTCTRL SDLK_LCTRL
 #define SDLC_KEYSTATE_RIGHTCTRL SDLK_RCTRL
 #define SDLC_KEYSTATE_LEFTSHIFT SDLK_LSHIFT
@@ -72,8 +83,9 @@ inline int SDLC_SetSurfaceAndPaletteColors(SDL_Surface *surface, SDL_Palette *pa
 		SDL_memcpy(palette->colors + firstcolor, colors, ncolors * sizeof(*colors));
 
 	#if SDL1_VIDEO_MODE_BPP == 8
-		// When the video surface is 8bit, we need to set the output pallet as well.
-		SDL_SetColors(SDL_GetVideoSurface(), colors, firstcolor, ncolors);
+	// When the video surface is 8bit, we need to set the output pallet as well.
+	SDL_SetColors(SDL_GetVideoSurface(), colors, firstcolor, ncolors);
+
 	#endif
 	// In SDL1, the surface always has its own distinct palette, so we need to
 	// update it as well.

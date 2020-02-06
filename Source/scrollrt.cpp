@@ -6,6 +6,7 @@ int light_table_index;
 DWORD sgdwCursWdtOld;
 DWORD sgdwCursX;
 DWORD sgdwCursY;
+// AMIGA important make Start first so that CMP2 works
 BYTE *gpBufStart;
 BYTE *gpBufEnd;
 DWORD sgdwCursHgt;
@@ -19,6 +20,8 @@ DWORD sgdwCursWdt;
 void (*DrawPlrProc)(int, int, int, int, int, BYTE *, int, int, int, int);
 BYTE sgSaveBack[8192];
 DWORD sgdwCursHgtOld;
+
+//#define static static __attribute__((regparm))
 
 /* data */
 
@@ -64,6 +67,10 @@ void ClearCursor() // CODE_FIX: this was supposed to be in cursor.cpp
 	sgdwCursWdt = 0;
 	sgdwCursWdtOld = 0;
 }
+
+#ifdef __AMIGA__
+#define static static __attribute__((regparm(2)))
+#endif
 
 /**
  * @brief Remove the cursor from the backbuffer
@@ -472,6 +479,32 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag);
 
 static void drawRow(int x, int y, int sx, int sy, int eflag)
 {
+// #undef __mc68000__
+#ifdef __mc68000__ // this code is better for gcc
+	BYTE *dst = &gpBuffer[sx + (unsigned short)sy * (unsigned short)BUFFER_WIDTH];	
+	int xy= (unsigned short)x*(unsigned short)MAXDUNY+y;	
+#define xy(T) (&T[0][0]+xy)[0]
+	WORD *mt = &xy(dpiece_defs_map_2).mt[0];
+
+	level_piece_id = xy(dPiece);
+	light_table_index = xy(dLight);
+
+	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[xy(dTransVal)]);
+	
+	arch_draw_type = 1;
+	if ((level_cel_block = *mt++)) drawUpperScreen(dst);
+	
+	arch_draw_type = 2;
+	if ((level_cel_block = *mt++)) drawUpperScreen(dst + 32);
+	
+	arch_draw_type = 0;
+	for(WORD i = MicroTileLen>>1; --i>0;) {
+		dst -= BUFFER_WIDTH * 32;
+		if ((level_cel_block = *mt++)) drawUpperScreen(dst);
+		if ((level_cel_block = *mt++)) drawUpperScreen(dst + 32);
+	}
+	
+#else
 	BYTE *dst;
 	MICROS *pMap;
 
@@ -494,7 +527,7 @@ static void drawRow(int x, int y, int sx, int sy, int eflag)
 		}
 		dst -= BUFFER_WIDTH * 32;
 	}
-
+#endif
 	scrollrt_draw_dungeon(x, y, sx, sy, eflag);
 }
 
@@ -1064,13 +1097,13 @@ static void DrawFPS()
 		frameend++;
 		tc = GetTickCount();
 		frames = tc - framestart;
-		if (tc - framestart >= 1000) {
+		if (tc - framestart >= 1000*5) {
 			framestart = tc;
-			framerate = 1000 * frameend / frames;
+			framerate = (1000 * frameend + frames/2) / frames;
 			frameend = 0;
 		}
 		wsprintf(String, "%d FPS", framerate);
-		PrintGameStr(8, 65, String, COL_RED);
+		PrintGameStr(8+8, 65, String, COL_RED);
 	}
 }
 
@@ -1169,11 +1202,21 @@ void scrollrt_draw_game_screen(BOOL draw_cursor)
 
 	DrawMain(hgt, 0, 0, 0, 0, 0);
 
+#ifdef __AMIGA__
+	if(ac68080_saga) {
+		RenderPresent(); // forces flip before cursor restore display when in saga mode
+	}
+#endif
+
 	if (draw_cursor) {
 		lock_buf(0);
 		scrollrt_draw_cursor_back_buffer();
 		unlock_buf(0);
 	}
+	
+#ifdef __AMIGA__
+	if(!ac68080_saga)
+#endif
 	RenderPresent();
 }
 
@@ -1234,9 +1277,18 @@ void DrawAndBlit()
 
 	DrawMain(hgt, ddsdesc, drawhpflag, drawmanaflag, drawsbarflag, drawbtnflag);
 
+#ifdef __AMIGA__
+	if(ac68080_saga) {
+		RenderPresent(); // forces flip before cursor restore display when in saga mode
+	}
+#endif
+
 	lock_buf(0);
 	scrollrt_draw_cursor_back_buffer();
 	unlock_buf(0);
+#ifdef __AMIGA__
+	if(!ac68080_saga)
+#endif
 	RenderPresent();
 
 	drawhpflag = FALSE;

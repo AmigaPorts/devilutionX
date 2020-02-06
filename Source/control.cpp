@@ -1684,37 +1684,55 @@ int DrawDurIcon4Item(ItemStruct *pItem, int x, int c)
 	return x - 40;
 }
 
+#pragma GCC push_options
+#pragma GCC optimize ("unroll-loops")
+
+static
+#ifdef __AMIGA__
+__attribute__((regparm(2))) 
+#endif
+void doLine(BYTE *src, BYTE *tbl)
+{
+	int d0 = 0, d1 = 0, d2 = 0, d3 = 0;
+	BYTE *dst = src;
+	for(WORD i=SCREEN_WIDTH>>2; i--;) {
+#ifdef __mc68000__
+#define SET(x,y) __asm__ __volatile__("	move.b	%1,%0\n" : "+dm" (x) : "m" (y))
+#else
+#define SET(x,y) x = (y)&255
+#endif
+		SET(d0, *src++); SET(d1, *src++); SET(d2, *src++); SET(d3, *src++); 
+		SET(d0, tbl[d0]); SET(d1, tbl[d1]); SET(d2, tbl[d2]); SET(d3 , tbl[d3]);
+		*dst++ = d0; *dst++ = d1; *dst++ = d2; *dst++ = d3;
+	}
+}
+#pragma GCC pop_options
+
 void RedBack()
 {
+	BYTE tbl2[256];
 	int idx;
 
 	idx = light4flag ? 1536 : 4608;
 
 	/// ASSERT: assert(gpBuffer);
 
-	int w, h;
+	int h;
 	BYTE *dst, *tbl;
 
 	if (leveltype != DTYPE_HELL) {
 		dst = &gpBuffer[SCREENXY(0, 0)];
 		tbl = &pLightTbl[idx];
-		for (h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH - SCREEN_WIDTH) {
-			for (w = SCREEN_WIDTH; w; w--) {
-				*dst = tbl[*dst];
-				dst++;
-			}
-		}
 	} else {
 		dst = &gpBuffer[SCREENXY(0, 0)];
 		tbl = &pLightTbl[idx];
-		for (h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH - SCREEN_WIDTH) {
-			for (w = SCREEN_WIDTH; w; w--) {
-				if (*dst >= 32)
-					*dst = tbl[*dst];
-				dst++;
-			}
-		}
+		
+		for(int i=32; --i>=0;) tbl2[i] = i;
+		memcpy(tbl2+32, tbl+32, 256-32);
+		
+		tbl = tbl2;
 	}
+	for (h = VIEWPORT_HEIGHT; h; h--, dst += BUFFER_WIDTH) doLine(dst,tbl);
 }
 
 char GetSBookTrans(int ii, BOOL townok)

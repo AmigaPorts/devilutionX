@@ -313,6 +313,14 @@ DWORD HashStringLower(const char * szFileName, DWORD dwHashType)
 // If the value is already a power of two, returns the same value
 DWORD GetNearestPowerOfTwo(DWORD dwFileCount)
 {
+#ifdef __mc68000__
+	DWORD ret = 1;
+	__asm__ __volatile__(
+	"	bfffo	%1{0:31},%1	\n"
+	"	bfins	%0,%0{0:%1}	\n"
+	: "+d" (ret), "+d" (dwFileCount) : );
+	return ret;
+#else
     dwFileCount --;
 
     dwFileCount |= dwFileCount >> 1;
@@ -322,6 +330,7 @@ DWORD GetNearestPowerOfTwo(DWORD dwFileCount)
     dwFileCount |= dwFileCount >> 16;
 
     return dwFileCount + 1;
+#endif
 }
 /*
 DWORD GetNearestPowerOfTwo(DWORD dwFileCount)
@@ -416,6 +425,56 @@ void EncryptMpqBlock(void * pvDataBlock, DWORD dwLength, DWORD dwKey1)
 
 void DecryptMpqBlock(void * pvDataBlock, DWORD dwLength, DWORD dwKey1)
 {
+#ifdef __mc68000__
+
+#define _DataBlock  	"a0"
+#define	_StormBuffer	"a1"
+#define _dwLength		"d0"
+#define _dwKey1			"d1"
+#define _dwKey2			"d2"
+#define _dwValue32		"d3"
+#define	_dwTmp			"d4"
+
+	register DWORD   dwLength_		asm(_dwLength);
+	
+    if(dwLength_ = dwLength>>2) {
+		register LPDWORD DataBlock 		asm(_DataBlock) = (LPDWORD)pvDataBlock;
+		register LPDWORD StormBuffer_	asm(_StormBuffer) = &StormBuffer[MPQ_HASH_KEY2_MIX];
+		register DWORD   dwKey1_  		asm(_dwKey1) = dwKey1;
+		register DWORD   dwKey2   		asm(_dwKey2) = 0xEEEEEEEE;
+		register DWORD   dwValue32		asm(_dwValue32);
+		register DWORD   dwTmp			asm(_dwTmp);
+		__asm__ __volatile__ (
+		"\n"
+		".loop%=:\n"
+		"	move.l	("_DataBlock"),"_dwTmp"								\n"
+		"	moveq	#0,"_dwValue32"										\n"
+		"	move.b	"_dwKey1","_dwValue32"								\n"
+		"	add.l	("_StormBuffer","_dwValue32".l*4),"_dwKey2"			\n"
+		"	move.l	"_dwKey1","_dwValue32"								\n"
+		"	add.l	"_dwKey2","_dwValue32"								\n"
+		"	eor.l	"_dwTmp","_dwValue32"								\n"
+		"	move.l	"_dwValue32",("_DataBlock")+						\n"
+		"	add.l	"_dwKey2","_dwValue32"								\n"
+		"	lsl.l	#5,"_dwKey2"										\n"
+		"	addq.l	#3,"_dwValue32"										\n"
+		"	add.l	"_dwValue32","_dwKey2"								\n"
+		"	moveq	#0x15,"_dwValue32"									\n"
+		"	rol.l	"_dwValue32","_dwKey1"								\n"
+		"	move.l	"_dwKey1","_dwValue32"								\n"
+		"	not.l	"_dwKey1"											\n"
+		"	and.l	#-1<<0x15,"_dwKey1"									\n"
+		"	and.l	#~(-1<<0x15),"_dwValue32"							\n"
+		"	add.l	#0x11111111,"_dwKey1"								\n"
+		"	or.l	"_dwValue32","_dwKey1"								\n"
+		"	subq.l	#1,"_dwLength"										\n"
+		"	bne.b	.loop%=												\n"
+		: "+r" (dwKey1_), "+r" (dwKey2), "=r" (dwValue32), "+r" (dwLength_), "+r" (DataBlock), "=r" (dwTmp)
+		: "r" (StormBuffer_)
+		: "cc", "memory"
+		);
+	}
+#else
     LPDWORD DataBlock = (LPDWORD)pvDataBlock;
     DWORD dwValue32;
     DWORD dwKey2 = 0xEEEEEEEE;
@@ -435,6 +494,7 @@ void DecryptMpqBlock(void * pvDataBlock, DWORD dwLength, DWORD dwKey1)
         dwKey1 = ((~dwKey1 << 0x15) + 0x11111111) | (dwKey1 >> 0x0B);
         dwKey2 = dwValue32 + dwKey2 + (dwKey2 << 5) + 3;
     }
+#endif
 }
 
 /**
@@ -1813,42 +1873,69 @@ uint64_t SwapUInt64( uint64_t val )
 }
 #endif
 
+#ifdef __AMIGA__
+extern "C" {
+	extern char ac68080_ammx;
+	extern void ConvertUInt16BufferAMMX(void * ptr, size_t length);
+	extern void ConvertUInt32BufferAMMX(void * ptr, size_t length);
+	extern void ConvertUInt64BufferAMMX(void * ptr, size_t length);
+};
+#endif
+
 // Swaps array of unsigned 16-bit integers
 void ConvertUInt16Buffer(void * ptr, size_t length)
 {
-    uint16_t * buffer = (uint16_t *)ptr;
-    uint32_t nElements = (uint32_t)(length / sizeof(uint16_t));
-
-    while(nElements-- > 0)
+#ifdef __AMIGA__
+	if(ac68080_ammx) ConvertUInt16BufferAMMX(ptr, length);
+	else
+#endif
 	{
-		*buffer = SwapUInt16(*buffer);
-		buffer++;
+		uint16_t * buffer = (uint16_t *)ptr;
+		uint32_t nElements = (uint32_t)(length / sizeof(uint16_t));
+
+		while(nElements-- > 0)
+		{
+			*buffer = SwapUInt16(*buffer);
+			buffer++;
+		}
 	}
 }
 
 // Swaps array of unsigned 32-bit integers
 void ConvertUInt32Buffer(void * ptr, size_t length)
 {
-    uint32_t * buffer = (uint32_t *)ptr;
-    uint32_t nElements = (uint32_t)(length / sizeof(uint32_t));
-
-	while(nElements-- > 0)
+#ifdef __AMIGA__
+	if(ac68080_ammx) ConvertUInt32BufferAMMX(ptr, length);
+	else
+#endif
 	{
-		*buffer = SwapUInt32(*buffer);
-		buffer++;
+		uint32_t * buffer = (uint32_t *)ptr;
+		uint32_t nElements = (uint32_t)(length / sizeof(uint32_t));
+
+		while(nElements-- > 0)
+		{
+			*buffer = SwapUInt32(*buffer);
+			buffer++;
+		}
 	}
 }
 
 // Swaps array of unsigned 64-bit integers
 void ConvertUInt64Buffer(void * ptr, size_t length)
 {
-    uint64_t * buffer = (uint64_t *)ptr;
-    uint32_t nElements = (uint32_t)(length / sizeof(uint64_t));
-
-	while(nElements-- > 0)
+#ifdef __AMIGA__
+	if(ac68080_ammx) ConvertUInt64BufferAMMX(ptr, length);
+	else
+#endif
 	{
-		*buffer = SwapUInt64(*buffer);
-		buffer++;
+		uint64_t * buffer = (uint64_t *)ptr;
+		uint32_t nElements = (uint32_t)(length / sizeof(uint64_t));
+
+		while(nElements-- > 0)
+		{
+			*buffer = SwapUInt64(*buffer);
+			buffer++;
+		}
 	}
 }
 

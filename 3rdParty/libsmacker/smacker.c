@@ -864,9 +864,14 @@ static char smk_render_video(struct smk_video_t* s, unsigned char* p, unsigned i
 	long unpack;
 
 	/* unpack, broken into pieces */
-	unsigned char type;
-	unsigned char blocklen;
-	unsigned char typedata;
+#ifdef __mc68000__
+	unsigned long
+#else
+	unsigned char
+#endif
+			type,
+			blocklen,
+			typedata;
 	char bit;
 
 	const unsigned short sizetable[64] = {
@@ -901,9 +906,15 @@ static char smk_render_video(struct smk_video_t* s, unsigned char* p, unsigned i
 	{
 		smk_huff16_lookup(bs,s->tree[SMK_TREE_TYPE],unpack);
 
+#ifdef __mc68000__
+		type = (unpack & 0x0003);
+		blocklen = ((unpack & 0x00FF) >> 2);
+		typedata = ((unpack>>8)&255)*0x1010101;
+#else
 		type = ((unpack & 0x0003));
 		blocklen = ((unpack & 0x00FC) >> 2);
 		typedata = ((unpack & 0xFF00) >> 8);
+#endif
 
 		/* support for v4 full-blocks */
 		if (type == 1 && s->v == '4')
@@ -921,45 +932,33 @@ static char smk_render_video(struct smk_video_t* s, unsigned char* p, unsigned i
 			}
 		}
 
-		for (j = 0; (j < sizetable[blocklen]) && (row < s->h); j ++)
+		for (j = sizetable[blocklen]; j && (row < s->h); --j)
 		{
 			skip = (row * s->w) + col;
 			switch(type)
 			{
 				case 0:
 					smk_huff16_lookup(bs,s->tree[SMK_TREE_MCLR],unpack);
-					s1 = (unpack & 0xFF00) >> 8;
-					s2 = (unpack & 0x00FF);
+					s2 = unpack; s1 = unpack>>8;
 					smk_huff16_lookup(bs,s->tree[SMK_TREE_MMAP],unpack);
-
-					temp = 0x01;
-					for (k = 0; k < 4; k ++)
-					{
-						for (i = 0; i < 4; i ++)
-						{
-							if (unpack & temp)
-							{
-								t[skip + i] = s1;
-							}
-							else
-							{
-								t[skip + i] = s2;
-							}
-							temp = temp << 1;
-						}
+					for(k=4; k; --k) {
+						t[skip + 0] = (unpack & 1) ? s1 : s2;
+						t[skip + 1] = (unpack & 2) ? s1 : s2;
+						t[skip + 2] = (unpack & 4) ? s1 : s2;
+						t[skip + 3] = (unpack & 8) ? s1 : s2;
+						unpack>>=4;
 						skip += s->w;
 					}
 					break;
-
 				case 1: /* FULL BLOCK */
-					for (k = 0; k < 4; k ++)
+					for (k = 4; k; --k)
 					{
 						smk_huff16_lookup(bs,s->tree[SMK_TREE_FULL],unpack);
-						t[skip + 3] = ((unpack & 0xFF00) >> 8);
-						t[skip + 2] = (unpack & 0x00FF);
+						t[skip + 2] = unpack;
+						t[skip + 3] = unpack>>8;
 						smk_huff16_lookup(bs,s->tree[SMK_TREE_FULL],unpack);
-						t[skip + 1] = ((unpack & 0xFF00) >> 8);
-						t[skip] = (unpack & 0x00FF);
+						t[skip + 0] = unpack;
+						t[skip + 1] = unpack>>8;
 						skip += s->w;
 					}
 					break;
@@ -977,6 +976,12 @@ static char smk_render_video(struct smk_video_t* s, unsigned char* p, unsigned i
 					} */
 					break;
 				case 3: /* SOLID BLOCK */
+#ifdef __mc68000__
+					*(int*)&t[skip] = typedata; skip += s->w;
+					*(int*)&t[skip] = typedata; skip += s->w;
+					*(int*)&t[skip] = typedata; skip += s->w;
+					*(int*)&t[skip] = typedata;
+#else
 					memset(&t[skip],typedata,4);
 					skip += s->w;
 					memset(&t[skip],typedata,4);
@@ -984,32 +989,29 @@ static char smk_render_video(struct smk_video_t* s, unsigned char* p, unsigned i
 					memset(&t[skip],typedata,4);
 					skip += s->w;
 					memset(&t[skip],typedata,4);
+#endif
 					break;
 				case 4: /* V4 DOUBLE BLOCK */
-					for (k = 0; k < 2; k ++)
+					for (k = 2; k ; --k)
 					{
 						smk_huff16_lookup(bs,s->tree[SMK_TREE_FULL],unpack);
 						for (i = 0; i < 2; i ++)
 						{
-							memset(&t[skip + 2],(unpack & 0xFF00) >> 8,2);
-							memset(&t[skip],(unpack & 0x00FF),2);
+							t[skip+0] = t[skip+1] = unpack;
+							t[skip+2] = t[skip+3] = unpack>>8;
 							skip += s->w;
 						}
 					}
 					break;
 				case 5: /* V4 HALF BLOCK */
-					for (k = 0; k < 2; k ++)
+					for (k = 2; k; --k)
 					{
 						smk_huff16_lookup(bs,s->tree[SMK_TREE_FULL],unpack);
-						t[skip + 3] = ((unpack & 0xFF00) >> 8);
-						t[skip + 2] = (unpack & 0x00FF);
-						t[skip + s->w + 3] = ((unpack & 0xFF00) >> 8);
-						t[skip + s->w + 2] = (unpack & 0x00FF);
+						t[skip + s->w + 2] = t[skip + 2] = unpack;
+						t[skip + s->w + 3] = t[skip + 3] = unpack>>8;
 						smk_huff16_lookup(bs,s->tree[SMK_TREE_FULL],unpack);
-						t[skip + 1] = ((unpack & 0xFF00) >> 8);
-						t[skip] = (unpack & 0x00FF);
-						t[skip + s->w + 1] = ((unpack & 0xFF00) >> 8);
-						t[skip + s->w] = (unpack & 0x00FF);
+						t[skip + s->w + 0] = t[skip + 0] = unpack;
+						t[skip + s->w + 1] = t[skip + 1] = unpack>>8;
 						skip += (s->w << 1);
 					}
 					break;

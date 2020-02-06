@@ -66,6 +66,7 @@ struct CCritSect {
 	{
 		DeleteCriticalSection(&m_critsect);
 	}
+	
 	void Enter()
 	{
 		EnterCriticalSection(&m_critsect);

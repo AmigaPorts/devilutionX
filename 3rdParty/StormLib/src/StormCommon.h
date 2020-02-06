@@ -114,6 +114,17 @@ typedef struct _MPQ_SIGNATURE_INFO
 //#define STORM_FREE(ptr)                  HeapFree(GetProcessHeap(), 0, ptr)
 //
 //#else
+	
+#ifdef __AMIGA__
+#define	malloc	dlmalloc
+#define	realloc	dlrealloc
+#define	free	dlfree
+extern "C" {
+void *malloc(size_t len);
+void *realloc(void *ptr, size_t len);
+void  free(void *ptr);
+}
+#endif
 
 #define STORM_ALLOC(type, nitems)        (type *)malloc((nitems) * sizeof(type))
 #define STORM_REALLOC(type, ptr, nitems) (type *)realloc(ptr, ((nitems) * sizeof(type)))

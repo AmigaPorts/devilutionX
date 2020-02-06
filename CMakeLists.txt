@@ -47,7 +47,7 @@ endif()
 
 project(DevilutionX
   VERSION ${GIT_TAG}
-  LANGUAGES C CXX)
+  LANGUAGES C CXX ASM)
 
 if(LTO)
   # Use LTO on compilers where it is supported.
@@ -320,6 +320,13 @@ if(SWITCH)
     SourceX/platform/switch/keyboard.cpp
     SourceX/platform/switch/docking.cpp)
   set(BIN_TARGET devilutionx.elf)
+endif()
+
+if(AMIGA)
+  list(APPEND devilutionx_SRCS
+    SourceX/platform/amiga/render68k.asm
+	SourceX/platform/amiga/memopt.asm
+	SourceX/platform/amiga/ac68080_support.c)
 endif()
 
 add_executable(${BIN_TARGET} WIN32 MACOSX_BUNDLE ${devilutionx_SRCS})
