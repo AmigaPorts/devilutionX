@@ -916,12 +916,25 @@ void Cl2Draw(int sx, int sy, BYTE *pCelBuff, int nCel, int nWidth)
 	    nWidth);
 }
 
+#if defined(__AMIGA__)
+extern "C" {
+	extern void Cl2BlitSafe_68k(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSiz, int nWidth);
+}
+#endif
+
 void Cl2BlitSafe(BYTE *pDecodeTo, BYTE *pRLEBytes, int nDataSize, int nWidth)
 {
 	int w;
 	char width;
 	BYTE fill;
 	BYTE *src, *dst;
+
+#if defined(__AMIGA__)
+{
+	Cl2BlitSafe_68k(pDecodeTo, pRLEBytes, nDataSize, nWidth);
+	return;
+}
+#endif
 
 	src = pRLEBytes;
 	dst = pDecodeTo;

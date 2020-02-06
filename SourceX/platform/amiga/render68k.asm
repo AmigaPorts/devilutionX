@@ -617,14 +617,14 @@ _RenderLine2
 
 *------------------------------------------------------------------------------------
     xdef    _setup
-    
+
 m68k_render
     dc.l    _RenderLine0
     REPT    14
     dc.l    _RenderLine2
     ENDR
     dc.l    _RenderLine1
-    
+
 ammx_render
     dc.l    _RenderLine0_AMMX
     REPT    14
@@ -713,9 +713,9 @@ _RenderTile_RT_TRANSPARENT
     move.b  (a1)+,d0            ; p2
     bgt     .L4                 ; p1
     bra     .L3                 ; p2
-.L2 move.l  d6,d1               ; p2   
+.L2 move.l  d6,d1               ; p2
     lsl.l   d0,d6               ; p1
-    jsr     (a4)                ; p1 
+    jsr     (a4)                ; p1
     move.b  (a1)+,d0            ; p1
     bgt     .L4                 ; p1
 .L3 add.b   d0,d7               ; p2
@@ -725,9 +725,9 @@ _RenderTile_RT_TRANSPARENT
     lsl.l   d0,d6               ; p2
     move.b  (a1)+,d0            ; p1
     ble     .L3                 ; p1
-.L4 sub.b   d0,d7               ; p2 
+.L4 sub.b   d0,d7               ; p2
     bne     .L2                 ; p1
-    move.l  d6,d1               ; p2   
+    move.l  d6,d1               ; p2
     jsr     (a4)                ; p1
     sub.w   #BUFFER_WIDTH+32,a0 ; p1
     tst.l   a6                  ; p2
@@ -811,9 +811,9 @@ triangR_ macro
 .i  set     .i-2
     ENDR
     endm
-    
+
   ifeq  INLINE_BLOCK16
-  
+
 _block16
     block16_
     rts
@@ -822,7 +822,7 @@ _triangL
     rts
 _triangR
     triangR_
-    rts  
+    rts
 block16 macro
     bsr   _block16
     endm
@@ -832,9 +832,9 @@ triangL macro
 triangR macro
     bsr   _triangR
     endm
-  
+
   else
-  
+
 block16 macro
     block16_
     endm
@@ -844,9 +844,9 @@ triangL macro
 triangR macro
     triangR_
     endm
-    
+
   endc
-  
+
 *------------------------------------------------------------------------------------
 * extern void RenderTile_RT_SQUARE(BYTE *dst, BYTE *src, BYTE *tbl, DWORD *mask)
 _RenderTile_RT_SQUARE
@@ -909,5 +909,141 @@ _RenderTile_RT_RTRIANGLE
 .i  set     .i+2
     ENDR
     epilogue_7
+
+
+*------------------------------------------------------------------------------------
+    XDEF    _Cl2BlitSafe_68k
+
+_Cl2BlitSafe_68k
+              rsreset
+.regs         rs.l    3
+              rs.l    1
+.pDecodeTo    rs.l    1
+.pRLEBytes    rs.l    1
+.nDataSize    rs.l    1
+.nWidth       rs.l    1
+
+    movem.l d2-d4,-(sp)
+    move.l  .pDecodeTo(sp),a1   ; a1 = dst
+    move.l  .pRLEBytes(sp),a0   ; a0 = src
+    move.l  .nDataSize(sp),d2   ; d2 = nDataSize
+    move.l  .nWidth(sp),d4      ; d4 = nWidth
+
+    move.l  d4,d1               ; d1 = w
+    tst.l   d2
+    beq.b   .done
+
+.loop
+    moveq   #0,d0
+    move.b  (a0)+,d0            ; d0 = width
+    bpl.b   .if1
+
+    neg.b   d0
+
+    moveq   #-65,d3
+    add.l   d0,d3               ; d3 = -65-width
+    ble.b   .if4
+
+    move.l  d3,d0               ; width -= 65 > 0
+    subq.l  #1,d2               ; --nDataSize
+    move.b  (a0)+,d3            ; fill = *src++
+
+    cmp2.l  __ZN3dvl10gpBufStartE,a1
+    bcs.b   .if1                ; if (dst < gpBufEnd && dst > gpBufStart) {
+    sub.l   d0,d1               ; w -= width
+.p5 jmp     .if5_68k.l
+
+.if4
+    sub.l   d0,d2               ; nDataSize -= width
+    cmp2.l  __ZN3dvl10gpBufStartE,a1
+    bcs.b   .if7                ; if (dst < gpBufEnd && dst > gpBufStart) {
+    sub.l   d0,d1               ; w -= width
+.p6 jmp     .if6_68k.l
+
+.if7                            ; else !(dst < gpBufEnd && dst > gpBufStart)
+    add.l   d0,a0               ; src+=width
+.if1
+    beq.b   .next
+    sub.l   d1,d0               ; d0 = width-w
+    ble.b   .if3                ; if(width > w) {
+
+.if2                            ; while(width) {
+    lea     -BUFFER_WIDTH(a1,d1.l),a1   ; dst += w - BUFFER_WIDTH
+    sub.l   d4,a1               ; dst -= w (== dst + w(prev) - BUFFER_WIDTH - w(new)
+    move.l  d4,d1               ; w = nWidth
+    sub.l   d4,d0               ; d0 = width-w
+    bhi.b   .if2                ; if(width > w) {
+
+.if3
+    add.l   d1,a1               ; .. dst += w
+    move.l  d0,d1
+    neg.l   d1                  ; d1 = w = -(width-w) = w - width
+    add.l   d0,a1               ; dst += width-w
+    bne.b   .next               ; if !w ==> continue
+
+.adv                            ; if(!w)
+    sub.w   #BUFFER_WIDTH,a1
+    move.l  d4,d1
+    suba.l  d4,a1
+.next
+    subq.l  #1,d2
+    bne     .loop
+.done
+    movem.l (sp)+,d2-d4
+
+.tst_ammx
+    tst.b   _ac68080_ammx
+    bne.b   .exit
+    lea     .if5_ammx,a0
+    lea     .if6_ammx,a1
+    move.l  a0,.p5+2
+    move.l  a1,.p6+2
+    move.w  #$4e75,.tst_ammx
+.exit
+    rts
+
+.if5_68k                        ; while(width) {
+    move.b  d3,(a1)+            ; *dst++ = fill:
+    subq.l  #1,d0               ; -width;
+    bne.b   .if5_68k            ; }
+    tst.l   d1                  ; if(!w)
+    beq.b   .adv                ;   w = nWidth ; ds -= BUFFER_WIDTH + w
+    bra.b   .next               ; else continue
+
+.if6_68k                        ; while(width) {
+    move.b  (a0)+,(a1)+         ;  *dst++=*src++;
+    subq.l  #1,d0               ; --width;
+    bne.b   .if6_68k            ; }
+.adv2
+    tst.l   d1                  ; if(!w)
+    beq.b   .adv                ;   {w = nWidth ; ds -= BUFFER_WIDTH + w}
+    bra.b   .next               ; else continue
+
+.if5_ammx
+    vperm   #$77777777,d3,d3,e0
+    bank    0,1,movea.l,a1,a1
+    add.l   d0,a1
+.if5_ammx1
+    storec  e0,d0,(b1)+
+    subq.l  #8,d0
+    storec  e0,d0,(b1)+
+    subq.l  #8,d0
+    bhi.b   .if5_ammx1
+    bra.b   .adv2
+
+.if6_ammx
+    bank    0,1,movea.l,a0,a0     ; movea a0,b0
+    add.l   d0,a0
+    bank    0,1,movea.l,a1,a1     ; movea a1,b1
+    add.l   d0,a1
+.if6_ammx1
+    load    (b0)+,e0
+    storec  e0,d0,(b1)+
+    subq.l  #8,d0
+    load    (b0)+,e0
+    storec  e0,d0,(b1)+
+    subq.l  #8,d0
+    bhi.b   .if6_ammx1
+    bra.b   .adv2
 
 * end of file
