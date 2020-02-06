@@ -196,6 +196,13 @@ void *__wrap_calloc(size_t num, size_t size)
 
 /*****************************************************************************/
 
+void assert_fail (char *file, int line, char *exp) {
+	printf("Assertion failed: %s\nFile: %s\nLine: %d\n",exp,file,line);
+	while(1) Delay(50);
+}
+
+/*****************************************************************************/
+
 static void stop(void)
 {
     if(bufmem) {

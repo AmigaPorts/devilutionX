@@ -54,7 +54,7 @@ ___wrap_memcpy
 .exit
 * remove initial comparison so that it now only costs 1 cycle
     move.w  #$203c,.entry       ; move.l #nnnn,d0
-    move.w  #$7200,.entry+6     ; moveq.w #0,d1
+    move.w  #$7200,.entry+6     ; moveq  #0,d1
     move.w  #$4e75,.exit        ; #rts
     rts                         ; no need to ClearCacheU on apollo!
 
