@@ -332,7 +332,7 @@ static void doPalette(void)
 static void setFrameBufferRegs(UBYTE *ptr, UWORD modulo)
 {
     volatile UBYTE **dpy = (UBYTE**)0xDFF1EC; /* Frame buffer address */
-    volatile UWORD  *mod = (UWORD**)0xDFF1E6; /* Frame buffer modulo */
+    volatile UWORD  *mod =  (UWORD*)0xDFF1E6; /* Frame buffer modulo */
 
     *dpy = ptr;
     *mod = modulo;
