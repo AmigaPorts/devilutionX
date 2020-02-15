@@ -993,7 +993,7 @@ _Cl2BlitSafe_68k
 
 .tst_ammx
     tst.b   _ac68080_ammx
-    bne.b   .exit
+    beq.b   .exit
     lea     .if5_ammx,a0
     lea     .if6_ammx,a1
     move.l  a0,.p5+2
