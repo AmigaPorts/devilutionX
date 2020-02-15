@@ -32,18 +32,18 @@ INLINE_BLOCK16  set     1   ; 1 seem faster, but hard to tell
 
     cnop    0,4
 
-bank macro
-    inline
-.aa equ   *
-    dc.w    (%0111000100000000+((\1)*%100)+(\2)+((.bb)*%1000000))
-    ifb   \5
-      \3    \4
-    else
-      \3    \4,\5
-  endc
-.bb equ   (*-.aa-4)>>1
-    einline
-  endm
+*bank macro
+*    inline
+*.aa equ   *
+*    dc.w    (%0111000100000000+((\1)*%100)+(\2)+((.bb)*%1000000))
+*    ifb   \5
+*      \3    \4
+*    else
+*      \3    \4,\5
+*  endc
+*.bb equ   (*-.aa-4)>>1
+*    einline
+*  endm
 
 * -----------------------------------------------------------------------------
 * inline static void RenderLine(BYTE **dst, BYTE **src, int n, BYTE *tbl, DWORD mask)
@@ -1002,6 +1002,32 @@ _Cl2BlitSafe_68k
 .exit
     rts
 
+.if5_ammx
+    vperm   #$77777777,d3,d3,e0
+    pea     (a1,d0.l)
+.if5_ammx1
+    storec  e0,d0,(a1)+
+    subq.l  #8,d0
+    bhi.b   .if5_ammx1
+    tst.l   d1                  ; if(!w)
+    movea.l (sp)+,a1
+    beq.b   .adv                ;   {w = nWidth ; ds -= BUFFER_WIDTH + w}
+    bra.b   .next               ; else continue
+
+.if6_ammx
+    pea     (a1,d0.l)
+    pea     (a0,d0.l)
+.if6_ammx1
+    load    (a0)+,e0
+    storec  e0,d0,(a1)+
+    subq.l  #8,d0
+    bhi.b   .if6_ammx1
+    tst.l   d1                  ; if(!w)
+    movea.l (sp)+,a0            ; fused
+    movea.l (sp)+,a1            ; fused
+    beq.b   .adv                ;   {w = nWidth ; ds -= BUFFER_WIDTH + w}
+    bra.b   .next               ; else continue
+
 .if5_68k                        ; while(width) {
     move.b  d3,(a1)+            ; *dst++ = fill:
     subq.l  #1,d0               ; -width;
@@ -1014,36 +1040,8 @@ _Cl2BlitSafe_68k
     move.b  (a0)+,(a1)+         ;  *dst++=*src++;
     subq.l  #1,d0               ; --width;
     bne.b   .if6_68k            ; }
-.adv2
     tst.l   d1                  ; if(!w)
-    beq.b   .adv                ;   {w = nWidth ; ds -= BUFFER_WIDTH + w}
-    bra.b   .next               ; else continue
-
-.if5_ammx
-    vperm   #$77777777,d3,d3,e0
-    bank    0,1,movea.l,a1,a1
-    add.l   d0,a1
-.if5_ammx1
-    storec  e0,d0,(b1)+
-    subq.l  #8,d0
-    storec  e0,d0,(b1)+
-    subq.l  #8,d0
-    bhi.b   .if5_ammx1
-    bra.b   .adv2
-
-.if6_ammx
-    bank    0,1,movea.l,a0,a0     ; movea a0,b0
-    add.l   d0,a0
-    bank    0,1,movea.l,a1,a1     ; movea a1,b1
-    add.l   d0,a1
-.if6_ammx1
-    load    (b0)+,e0
-    storec  e0,d0,(b1)+
-    subq.l  #8,d0
-    load    (b0)+,e0
-    storec  e0,d0,(b1)+
-    subq.l  #8,d0
-    bhi.b   .if6_ammx1
-    bra.b   .adv2
+    beq.w   .adv                ;   {w = nWidth ; ds -= BUFFER_WIDTH + w}
+    bra.w   .next               ; else continue
 
 * end of file
