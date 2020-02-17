@@ -73,6 +73,7 @@ extern void gamemenu_quit_game(int);
 
 UBYTE ac68080_saga = 0;
 UBYTE ac68080_ammx = 0;
+UBYTE aros_is_here = 0;
 
 static USHORT copy_previous = 0;
 
@@ -213,9 +214,11 @@ static void stop(void)
 
 static void start(void)
 {
+    void *aros_lib;
+    
     started = 255;
     atexit(stop);
-
+    
     if (SysBase->AttnFlags &(1 << 10)) {
         ac68080_saga = _ZN3dvl10fullscreenE ? 255:0; // disable if not fullscreen
 
@@ -232,7 +235,7 @@ static void start(void)
            ac68080_ammx = 255;
         }
 
-        printf("Vampire accelerator detected");
+        printf("^8^ Vampire ^8^ accelerator detected");
         if(ac68080_ammx || ac68080_saga) {
             printf(". Using");
             if(ac68080_saga) {
@@ -245,6 +248,24 @@ static void start(void)
         }
         printf(".\n");
     }
+
+	aros_is_here = 255;
+    if((aros_lib = OpenLibrary("aros.library", 0L))) {
+        CloseLibrary(aros_lib);
+        aros_is_here = 255;
+		printf("AROS detected.\n");
+	}
+	if(aros_is_here)
+        printf("\n"
+				"        ( ( ( ( ( (\n"
+               "       (  ) ) )     (            %s\n"
+               "     \\`-_ ((( _-'/ ) (\n"
+               "      ) <0> <0> ( (  (    ,-------. ,------- .-------.      ,-----\n"
+               "     (  ==_*_==  ) ) (    |       | |        |       |      |\n"
+               "      `--_____--' ( (     `-----  ° °        `-------' -----'\n"
+			   "\n",
+               ac68080_ammx ?                   "  VAMPIRE SAYS HELLO TO"
+                            :                   "DEVILUTIONX SAYS HELLO TO");                                                                
 }
 
 SDL_Surface* vampire_MakeTripleBuffer(SDL_Surface *surf)
