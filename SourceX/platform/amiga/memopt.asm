@@ -226,5 +226,45 @@ _ConvertUInt64BufferAMMX
     subq.l  #8,d0
     bhi     .loop
     rts
+
+* void SDL_MixAudio_m68k_S16MSB(short* dst, short* src, long len, long volume)
+
+    xref    ___real_SDL_MixAudio_m68k_S16MSB
+    xdef    ___wrap_SDL_MixAudio_m68k_S16MSB
+
+SDL_MixAudio_m68k_S16MSB
+    jmp   ___real_SDL_MixAudio_m68k_S16MSB
     
+___wrap_SDL_MixAudio_m68k_S16MSB
+      rsreset
+      rs.l  1
+.dst  rs.l  1
+.src  rs.l  1
+.len  rs.l  1
+.vol  rs.l  1
+
+.entry
+    tst.b     _ac68080_ammx
+    beq.b     SDL_MixAudio_m68k_S16MSB
+    move.l    .len(sp),d0
+    and.l     #-2,d0
+    beq.b     .exit
+    move.l    .vol(sp),d1
+    lsl.l     #1,d1             ; make volume 8.8
+    move.l    .dst(sp),a1       ; get dst
+    move.l    .src(sp),a0       ; get src
+    vperm     #$67676767,d1,d1,d1 ; copy volume 4 time
+.loop
+    pmul88    (a0)+,d1,e0       ; src-sample * volume
+    paddw     (a1),e0,e0        ; add dst ignoring saturation
+    storec    e0,d0,(a1)+       ; store result
+    subq.l    #8,d0
+    bhi.s     .loop
+.exit
+* remove initial comparison so that it now only costs 1 cycle
+    move.w  #$203c,.entry       ; move.l #nnnn,d0
+    move.w  #$7200,.entry+6     ; moveq  #0,d1
+    move.w  #$4e75,.exit        ; #rts
+    rts                         ; no need to ClearCacheU on apollo!
+
 * end of file

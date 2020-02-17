@@ -53,7 +53,7 @@ endif()
 
 # Compiler flags
 if(PROFILE)
-	set(FLAGS_COMMON "-D__PROFILE__ -pg")
+	set(FLAGS_COMMON "-D__PROFILE__ -pg -D_DEBUG")
 else()
 	set(FLAGS_COMMON "-fomit-frame-pointer")
 endif()
@@ -77,7 +77,8 @@ foreach(_wrapped
 	free
 	realloc
 	calloc
-	SDL_VideoInit)
+	SDL_VideoInit
+	SDL_MixAudio_m68k_S16MSB)
 	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--wrap=${_wrapped}")
 endforeach(_wrapped)
 
