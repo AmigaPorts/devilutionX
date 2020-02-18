@@ -591,7 +591,7 @@ void SVidPlayBegin(char *filename, int a2, int a3, int a4, int a5, int flags, HA
 #elif SDL1_VIDEO_MODE_BPP == 8
 	SDL_SetVideoMode(SVidWidth, 
 #ifdef __AMIGA__ // fixes video not being centered
-					 SVidHeight<200?200:SVidHeight,
+					 SVidHeight<200?(aros_is_here?240:200):SVidHeight,
 #else
 					 SVidHeight, 
 #endif
