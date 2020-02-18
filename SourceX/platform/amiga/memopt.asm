@@ -254,10 +254,26 @@ ___wrap_SDL_MixAudio_m68k_S16MSB
     move.l    .dst(sp),a1       ; get dst
     move.l    .src(sp),a0       ; get src
     vperm     #$67676767,d1,d1,d1 ; copy volume 4 time
+
 .loop
     pmul88    (a0)+,d1,e0       ; src-sample * volume
-    paddw     (a1),e0,e0        ; add dst ignoring saturation
-    storec    e0,d0,(a1)+       ; store result
+    load      (a1),e1
+
+; sw implementation of vaddssw inspired from:
+; http://rg1-teaching.mpi-inf.mpg.de/advancedc-ws08/script/lecture10.pdf    
+    paddw     e0,e1,e2          ; sum = x+y
+
+    pmaxuw.w  #$7FFF,e0,e3
+    pminuw.w  #$8000,e3,e3      ; big = (x>>15) ^ 32767
+
+    peor      e2,e0,e0          ; x ^= sum
+    peor      e2,e1,e1          ; y ^= sum
+    pand      e0,e1,e1          ; overflow = x&y
+    vperm     #$00224466,e1,e1,e1  ; set b7 at proper place for ilm
+
+    storeilm  e2,e1,e3          ; sum = overflow<0 ? big : sum
+    
+    storec    e3,d0,(a1)+       ; store result
     subq.l    #8,d0
     bhi.s     .loop
 .exit
