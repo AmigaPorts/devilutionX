@@ -235,7 +235,7 @@ static void start(void)
            ac68080_ammx = 255;
         }
 
-        printf("^8^ Vampire ^8^ accelerator detected");
+        printf("Vampire accelerator detected");
         if(ac68080_ammx || ac68080_saga) {
             printf(". Using");
             if(ac68080_saga) {
@@ -246,25 +246,25 @@ static void start(void)
                 printf(" AMMX");
             }
         }
-        printf(".\n");
+        printf(". ^8^\n");
     }
 
-	aros_is_here = 255;
+    //aros_is_here = 255;
     if((aros_lib = OpenLibrary("aros.library", 0L))) {
         CloseLibrary(aros_lib);
         aros_is_here = 255;
-		printf("AROS detected.\n");
-	}
-	if(aros_is_here)
+        printf("AROS detected.\n");
+    }
+    if(aros_is_here)
         printf("\n"
-				"         _--------___\n"
-                "        (  (  )  )  (            %s\n"
-                "      \\`-_  `' _-'/  `.\n"
-                "       ) <0> <0> (   (    ,-------. ,------- .-------.      ,-----\n"
-                "      (  ==_*_==  )   )   |       | |        |       |      |\n"
-                "       `--_____--'  )'    `-----  ¹ ¹        `-------' -----'\n"
-                "                 ;,'\n"
-			   "\n",
+                "         _-------___\n"
+                "      _ ( (  (  ( _(            %s\n"
+                "      \\`-_ `v' _-'/ `.\n"
+                "       ) <0> <0> (  (    ,-------. ,------- .-------.      ,-----\n"
+                "      (  ==_*_==  )  )   |       | |        |       |      |\n"
+                "       `--_____--' )'    `-----  ¹ ¹        `-------' -----'\n"
+                "                 ;'\n"
+               "\n",
                ac68080_ammx ?                   "  VAMPIRE SAYS HELLO TO"
                             :                   "DEVILUTIONX SAYS HELLO TO");                                                                
 }
