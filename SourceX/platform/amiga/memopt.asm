@@ -256,9 +256,16 @@ ___wrap_SDL_MixAudio_m68k_S16MSB
     vperm     #$67676767,d1,d1,d1 ; copy volume 4 time
 
 .loop
-    pmul88    (a0)+,d1,e0       ; src-sample * volume
+    pmul88    (a0)+,d1,e0       ; src-sample * volume 
     load      (a1),e1
-
+  ifne 1
+    pmaxsw.w  #0,e1,e2          ; e2 = + positive dst-samples / 0 otherwise
+    psubw     e1,e2,e1          ; e1 = - negative dst-samples / 0 otherwise
+    paddw.w   #$8000,e0,e0      ; make unsigned
+    paddusw   e2,e0,e0          ; add positive samples, saturate at $ff
+    psubusw   e1,e0,e0          ; subtract negative samples, saturate at $00
+    psubw.w   #$8000,e0,e3      ; make signed
+  else
 ; sw implementation of vaddssw inspired from:
 ; http://rg1-teaching.mpi-inf.mpg.de/advancedc-ws08/script/lecture10.pdf    
     paddw     e0,e1,e2          ; sum = x+y
@@ -272,7 +279,7 @@ ___wrap_SDL_MixAudio_m68k_S16MSB
     vperm     #$00224466,e1,e1,e1  ; set b7 at proper place for ilm
 
     storeilm  e2,e1,e3          ; sum = overflow<0 ? big : sum
-    
+  endc
     storec    e3,d0,(a1)+       ; store result
     subq.l    #8,d0
     bhi.s     .loop
