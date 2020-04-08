@@ -1,9 +1,17 @@
-#include "diablo.h"
+/**
+ * @file gendung.cpp
+ *
+ * Implementation of general dungeon generation code.
+ */
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
 WORD level_frame_types[MAXTILES];
 int themeCount;
+/**
+ * List of transparent dPieces
+ */
 BOOLEAN nTransTable[2049];
 //int dword_52D204;
 int dMonster[MAXDUNX][MAXDUNY];
@@ -21,6 +29,9 @@ BOOL setloadflag;
 BYTE *pMegaTiles;
 BYTE *pLevelPieces;
 int gnDifficulty;
+/**
+ * List of transparancy masks to use for dPieces
+ */
 char block_lvid[2049];
 //char byte_5B78EB;
 char dTransVal[MAXDUNX][MAXDUNY];
@@ -28,17 +39,26 @@ BOOLEAN nTrapTable[2049];
 BYTE leveltype;
 BYTE currlevel;
 BOOLEAN TransList[256];
+/**
+ * List of path blocking dPieces
+ */
 BOOLEAN nSolidTable[2049];
 ScrollStruct ScrollInfo;
 BYTE *pDungeonCels;
 THEME_LOC themeLoc[MAXTHEMES];
 char dPlayer[MAXDUNX][MAXDUNY];
-char dArch[MAXDUNX][MAXDUNY];
+char dSpecial[MAXDUNX][MAXDUNY];
+/**
+ * List of light blocking dPieces
+ */
 BOOLEAN nBlockTable[2049];
 BYTE *pSpecialCels;
 char dFlags[MAXDUNX][MAXDUNY];
 char dItem[MAXDUNX][MAXDUNY];
 BYTE setlvlnum;
+/**
+ * List of missile blocking dPieces
+ */
 BOOLEAN nMissileTable[2049];
 BYTE *pSetPiece;
 char setlvltype;
@@ -117,7 +137,10 @@ void SetDungeonMicros()
 	WORD *pPiece;
 	MICROS *pMap;
 
-	if (leveltype != DTYPE_HELL) {
+	if (leveltype == DTYPE_TOWN) {
+		MicroTileLen = 16;
+		blocks = 16;
+	} else if (leveltype != DTYPE_HELL) {
 		MicroTileLen = 10;
 		blocks = 10;
 	} else {
@@ -131,7 +154,7 @@ void SetDungeonMicros()
 			pMap = &dpiece_defs_map_2[x][y];
 			if (lv) {
 				lv--;
-				if (leveltype != DTYPE_HELL)
+				if (leveltype != DTYPE_HELL && leveltype != DTYPE_TOWN)
 					pPiece = (WORD *)&pLevelPieces[20 * lv];
 				else
 					pPiece = (WORD *)&pLevelPieces[32 * lv];

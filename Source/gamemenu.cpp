@@ -1,7 +1,13 @@
-#include "diablo.h"
+/**
+ * @file gamemenu.cpp
+ *
+ * Implementation of the in-game menu functions.
+ */
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
+/** Contains the game menu items of the single player menu. */
 TMenuItem sgSingleMenu[6] = {
 	// clang-format off
 	//   dwFlags, pszStr,        fnMenu
@@ -13,6 +19,7 @@ TMenuItem sgSingleMenu[6] = {
 	{ GMENU_ENABLED, NULL, NULL }
 	// clang-format on
 };
+/** Contains the game menu items of the multi player menu. */
 TMenuItem sgMultiMenu[5] = {
 	// clang-format off
 	//   dwFlags, pszStr,            fnMenu
@@ -30,31 +37,34 @@ TMenuItem sgOptionsMenu[6] = {
 	{ GMENU_ENABLED | GMENU_SLIDER, NULL,            &gamemenu_sound_volume  },
 	{ GMENU_ENABLED | GMENU_SLIDER, "Gamma",         &gamemenu_gamma         },
 	{ GMENU_ENABLED               , NULL,            &gamemenu_color_cycling },
-	{ GMENU_ENABLED               , "Previous Menu", &j_gamemenu_previous    },
+	{ GMENU_ENABLED               , "Previous Menu", &gamemenu_previous    },
 	{ GMENU_ENABLED               , NULL,            NULL                    }
 	// clang-format on
 };
+/** Specifies the menu names for music enabled and disabled. */
 char *music_toggle_names[] = { "Music", "Music Disabled" };
+/** Specifies the menu names for sound enabled and disabled. */
 char *sound_toggle_names[] = { "Sound", "Sound Disabled" };
+/** Specifies the menu names for colour cycling disabled and enabled. */
 char *color_cycling_toggle_names[] = { "Color Cycling Off", "Color Cycling On" };
 
-void gamemenu_previous()
+void gamemenu_on()
 {
 	void (*proc)(TMenuItem *);
 	TMenuItem *item;
 
 	if (gbMaxPlayers == 1) {
-		proc = gamemenu_enable_single;
+		proc = gamemenu_update_single;
 		item = sgSingleMenu;
 	} else {
-		proc = gamemenu_enable_multi;
+		proc = gamemenu_update_multi;
 		item = sgMultiMenu;
 	}
-	gmenu_call_proc(item, proc);
+	gmenu_set_items(item, proc);
 	PressEscKey();
 }
 
-void gamemenu_enable_single(TMenuItem *pMenuItems)
+void gamemenu_update_single(TMenuItem *pMenuItems)
 {
 	BOOL enable;
 
@@ -67,27 +77,27 @@ void gamemenu_enable_single(TMenuItem *pMenuItems)
 	gmenu_enable(sgSingleMenu, enable);
 }
 
-void gamemenu_enable_multi(TMenuItem *pMenuItems)
+void gamemenu_update_multi(TMenuItem *pMenuItems)
 {
 	gmenu_enable(&sgMultiMenu[2], deathflag);
 }
 
 void gamemenu_off()
 {
-	gmenu_call_proc(0, NULL);
+	gmenu_set_items(0, NULL);
 }
 
 void gamemenu_handle_previous()
 {
-	if (gmenu_exception())
+	if (gmenu_is_active())
 		gamemenu_off();
 	else
-		gamemenu_previous();
+		gamemenu_on();
 }
 
-void j_gamemenu_previous(BOOL bActivate)
+void gamemenu_previous(BOOL bActivate)
 {
-	gamemenu_previous();
+	gamemenu_on();
 }
 
 void gamemenu_new_game(BOOL bActivate)
@@ -168,7 +178,7 @@ void gamemenu_options(BOOL bActivate)
 	gamemenu_get_sound();
 	gamemenu_get_gamma();
 	gamemenu_get_color_cycling();
-	gmenu_call_proc(sgOptionsMenu, NULL);
+	gmenu_set_items(sgOptionsMenu, NULL);
 }
 
 void gamemenu_get_music()
@@ -259,7 +269,7 @@ void gamemenu_sound_volume(BOOL bActivate)
 	if (bActivate) {
 		if (gbSoundOn) {
 			gbSoundOn = FALSE;
-			FreeMonsterSnd();
+			sound_stop();
 			sound_get_or_set_sound_volume(VOLUME_MIN);
 		} else {
 			gbSoundOn = TRUE;
@@ -271,7 +281,7 @@ void gamemenu_sound_volume(BOOL bActivate)
 		if (volume == VOLUME_MIN) {
 			if (gbSoundOn) {
 				gbSoundOn = FALSE;
-				FreeMonsterSnd();
+				sound_stop();
 			}
 		} else if (!gbSoundOn) {
 			gbSoundOn = TRUE;

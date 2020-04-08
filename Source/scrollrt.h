@@ -9,6 +9,7 @@ extern BYTE *gpBufEnd;
 extern DWORD level_cel_block;
 extern char arch_draw_type;
 extern int cel_transparency_active;
+extern int cel_foliage_active;
 extern int level_piece_id;
 extern void (*DrawPlrProc)(int, int, int, int, int, BYTE *, int, int, int, int);
 
@@ -28,7 +29,7 @@ void DrawAndBlit();
 
 /* data */
 
-/* used in 1.00 debug */
+/** used in 1.00 debug */
 extern char *szMonModeAssert[18];
 extern char *szPlrModeAssert[12];
 

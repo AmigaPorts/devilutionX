@@ -1,4 +1,4 @@
-#include "devilution.h"
+#include "all.h"
 #include "display.h"
 #include "stubs.h"
 #include "utf8.h"
@@ -36,7 +36,6 @@ Art ArtBackground;
 Art ArtCursor;
 Art ArtHero;
 bool gbSpawned;
-int heroLevel;
 
 void (*gfnSoundFunction)(char *file);
 void (*gfnListFocus)(int value);
@@ -49,11 +48,12 @@ bool UiItemsWraps;
 char *UiTextInput;
 int UiTextInputLen;
 
+int SelectedItem = 0;
+
 namespace {
 
 DWORD fadeTc;
 int fadeValue = 0;
-int SelectedItem = 0;
 
 struct {
 	bool upArrowPressed = false;

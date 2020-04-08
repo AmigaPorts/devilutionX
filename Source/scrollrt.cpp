@@ -1,24 +1,55 @@
-#include "diablo.h"
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
+/**
+ * Specifies the current light entry.
+ */
 int light_table_index;
 DWORD sgdwCursWdtOld;
 DWORD sgdwCursX;
 DWORD sgdwCursY;
+/**
+ * Upper bound of back buffer.
+ */
 BYTE *gpBufStart;
+/**
+ * Lower bound of back buffer.
+ */
 BYTE *gpBufEnd;
 DWORD sgdwCursHgt;
+
+/**
+ * Specifies the current MIN block of the level CEL file, as used during rendering of the level tiles.
+ *
+ * frameNum  := block & 0x0FFF
+ * frameType := block & 0x7000 >> 12
+ */
 DWORD level_cel_block;
 DWORD sgdwCursXOld;
 DWORD sgdwCursYOld;
+/**
+ * Specifies the type of arches to render.
+ */
 char arch_draw_type;
+/**
+ * Specifies whether transparency is active for the current CEL file being decoded.
+ */
 int cel_transparency_active;
+/**
+ * Specifies whether foliage (tile has extra content that overlaps previous tile) being rendered.
+ */
+int cel_foliage_active = false;
+/**
+ * Specifies the current dungeon piece ID of the level, as used during rendering of the level tiles.
+ */
 int level_piece_id;
 DWORD sgdwCursWdt;
 void (*DrawPlrProc)(int, int, int, int, int, BYTE *, int, int, int, int);
 BYTE sgSaveBack[8192];
 DWORD sgdwCursHgtOld;
+
+bool dRendered[MAXDUNX][MAXDUNY];
 
 /* data */
 
@@ -59,6 +90,9 @@ char *szPlrModeAssert[12] = {
 	"quitting"
 };
 
+/**
+ * @brief Clear cursor state
+ */
 void ClearCursor() // CODE_FIX: this was supposed to be in cursor.cpp
 {
 	sgdwCursWdt = 0;
@@ -66,7 +100,7 @@ void ClearCursor() // CODE_FIX: this was supposed to be in cursor.cpp
 }
 
 /**
- * @brief Remove the cursor from the backbuffer
+ * @brief Remove the cursor from the back buffer
  */
 static void scrollrt_draw_cursor_back_buffer()
 {
@@ -98,7 +132,7 @@ static void scrollrt_draw_cursor_back_buffer()
 }
 
 /**
- * @brief Draw the cursor on the backbuffer
+ * @brief Draw the cursor on the back buffer
  */
 static void scrollrt_draw_cursor_item()
 {
@@ -107,7 +141,7 @@ static void scrollrt_draw_cursor_item()
 
 	assert(! sgdwCursWdt);
 
-	if (pcurs <= 0 || cursW == 0 || cursH == 0) {
+	if (pcurs <= CURSOR_NONE || cursW == 0 || cursH == 0) {
 		return;
 	}
 
@@ -178,6 +212,13 @@ static void scrollrt_draw_cursor_item()
 	}
 }
 
+/**
+ * @brief Render a missile sprite
+ * @param m Pointer to MissileStruct struct
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ * @param pre Is the sprite in the background
+ */
 void DrawMissilePrivate(MissileStruct *m, int sx, int sy, BOOL pre)
 {
 	int mx, my, nCel, frames;
@@ -208,11 +249,11 @@ void DrawMissilePrivate(MissileStruct *m, int sx, int sy, BOOL pre)
 }
 
 /**
- * @brief Render a missile sprite
+ * @brief Render a missile sprites for a given tile
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param sx Backbuffer coordinate
- * @param sy Backbuffer coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
  * @param pre Is the sprite in the background
  */
 void DrawMissile(int x, int y, int sx, int sy, BOOL pre)
@@ -242,8 +283,9 @@ void DrawMissile(int x, int y, int sx, int sy, BOOL pre)
  * @brief Render a monster sprite
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param mx Backbuffer coordinate
- * @param my Backbuffer coordinate
+ * @param mx Back buffer coordinate
+ * @param my Back buffer coordinate
+ * @param m Id of monster
  */
 static void DrawMonster(int x, int y, int mx, int my, int m)
 {
@@ -298,12 +340,12 @@ static void DrawMonster(int x, int y, int mx, int my, int m)
 }
 
 /**
- * @brief Render a monster sprite
+ * @brief Render a player sprite
  * @param pnum Player id
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param px Backbuffer coordinate
- * @param py Backbuffer coordinate
+ * @param px Back buffer coordinate
+ * @param py Back buffer coordinate
  * @param pCelBuff sprite buffer
  * @param nCel frame
  * @param nWidth width
@@ -375,11 +417,11 @@ static void DrawPlayer(int pnum, int x, int y, int px, int py, BYTE *pCelBuff, i
 }
 
 /**
- * @brief Render a monster sprite
+ * @brief Render a player sprite
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param sx Backbuffer coordinate
- * @param sy Backbuffer coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
  */
 void DrawDeadPlayer(int x, int y, int sx, int sy)
 {
@@ -415,8 +457,8 @@ void DrawDeadPlayer(int x, int y, int sx, int sy)
  * @brief Render an object sprite
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param ox Backbuffer coordinate
- * @param oy Backbuffer coordinate
+ * @param ox Back buffer coordinate
+ * @param oy Back buffer coordinate
  * @param pre Is the sprite in the background
  */
 static void DrawObject(int x, int y, int ox, int oy, BOOL pre)
@@ -468,60 +510,74 @@ static void DrawObject(int x, int y, int ox, int oy, BOOL pre)
 	}
 }
 
-static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag);
+static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy);
 
-static void drawRow(int x, int y, int sx, int sy, int eflag)
+/**
+ * @brief Render a cell
+ * @param x dPiece coordinate
+ * @param y dPiece coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ */
+static void drawCell(int x, int y, int sx, int sy)
 {
 	BYTE *dst;
 	MICROS *pMap;
 
-	level_piece_id = dPiece[x][y];
-	light_table_index = dLight[x][y];
-
 	dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
 	pMap = &dpiece_defs_map_2[x][y];
+	level_piece_id = dPiece[x][y];
 	cel_transparency_active = (BYTE)(nTransTable[level_piece_id] & TransList[dTransVal[x][y]]);
+	cel_foliage_active = !nSolidTable[level_piece_id];
 	for (int i = 0; i<MicroTileLen>> 1; i++) {
-		arch_draw_type = i == 0 ? 1 : 0;
 		level_cel_block = pMap->mt[2 * i];
 		if (level_cel_block != 0) {
-			drawUpperScreen(dst);
+			arch_draw_type = i == 0 ? 1 : 0;
+			RenderTile(dst);
 		}
-		arch_draw_type = i == 0 ? 2 : 0;
 		level_cel_block = pMap->mt[2 * i + 1];
 		if (level_cel_block != 0) {
-			drawUpperScreen(dst + 32);
+			arch_draw_type = i == 0 ? 2 : 0;
+			RenderTile(dst + 32);
 		}
 		dst -= BUFFER_WIDTH * 32;
 	}
-
-	scrollrt_draw_dungeon(x, y, sx, sy, eflag);
+	cel_foliage_active = false;
 }
 
 /**
- * This variant checks for of screen element on the lower screen
- * This function it self causes rendering issues since it will render on top of objects on the other side of walls
- * @brief Re render tile to workaround sorting issues with players walking east/west
- * @param y dPiece coordinate
+ * @brief Render a floor tiles
  * @param x dPiece coordinate
- * @param sx Backbuffer coordinate
- * @param sy Backbuffer coordinate
+ * @param y dPiece coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
  */
-static void scrollrt_draw_e_flag(int x, int y, int sx, int sy)
+static void drawFloor(int x, int y, int sx, int sy)
 {
-	int lti_old, cta_old, lpi_old;
+	cel_transparency_active = 0;
+	light_table_index = dLight[x][y];
 
-	lti_old = light_table_index;
-	cta_old = cel_transparency_active;
-	lpi_old = level_piece_id;
-
-	drawRow(x, y, sx, sy, 0);
-
-	light_table_index = lti_old;
-	cel_transparency_active = cta_old;
-	level_piece_id = lpi_old;
+	BYTE *dst = &gpBuffer[sx + sy * BUFFER_WIDTH];
+	arch_draw_type = 1; // Left
+	level_cel_block = dpiece_defs_map_2[x][y].mt[0];
+	if (level_cel_block != 0) {
+		RenderTile(dst);
+	}
+	arch_draw_type = 2; // Right
+	level_cel_block = dpiece_defs_map_2[x][y].mt[1];
+	if (level_cel_block != 0) {
+		RenderTile(dst + 32);
+	}
 }
 
+/**
+ * @brief Draw item for a given tile
+ * @param y dPiece coordinate
+ * @param x dPiece coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ * @param pre Is the sprite in the background
+ */
 static void DrawItem(int x, int y, int sx, int sy, BOOL pre)
 {
 	char bItem = dItem[x][y];
@@ -542,7 +598,15 @@ static void DrawItem(int x, int y, int sx, int sy, BOOL pre)
 	CelClippedDrawLight(px, sy, pItem->_iAnimData, pItem->_iAnimFrame, pItem->_iAnimWidth);
 }
 
-static void DrawMonsterHelper(int x, int y, int oy, int sx, int sy, int eflag)
+/**
+ * @brief Check if and how a mosnter should be rendered
+ * @param y dPiece coordinate
+ * @param x dPiece coordinate
+ * @param oy dPiece Y offset
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ */
+static void DrawMonsterHelper(int x, int y, int oy, int sx, int sy)
 {
 	int mi, px, py;
 	MonsterStruct *pMonster;
@@ -582,12 +646,17 @@ static void DrawMonsterHelper(int x, int y, int oy, int sx, int sy, int eflag)
 		Cl2DrawOutline(233, px, py, pMonster->_mAnimData, pMonster->_mAnimFrame, pMonster->MType->width);
 	}
 	DrawMonster(x, y, px, py, mi);
-	if (eflag && !pMonster->_meflag) {
-		scrollrt_draw_e_flag(x - 1, y + 1, sx - 64, sy);
-	}
 }
 
-static void DrawPlayerHelper(int x, int y, int oy, int sx, int sy, int eflag)
+/**
+ * @brief Check if and how a player should be rendered
+ * @param y dPiece coordinate
+ * @param x dPiece coordinate
+ * @param oy dPiece Y offset
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ */
+static void DrawPlayerHelper(int x, int y, int oy, int sx, int sy)
 {
 	int p = dPlayer[x][y + oy];
 	p = p > 0 ? p - 1 : -(p + 1);
@@ -596,23 +665,16 @@ static void DrawPlayerHelper(int x, int y, int oy, int sx, int sy, int eflag)
 	int py = sy + pPlayer->_pyoff;
 
 	DrawPlayer(p, x, y + oy, px, py, pPlayer->_pAnimData, pPlayer->_pAnimFrame, pPlayer->_pAnimWidth);
-	if (eflag && pPlayer->_peflag != 0) {
-		if (pPlayer->_peflag == 2) {
-			scrollrt_draw_e_flag(x - 2, y + 1, sx - 96, sy - 16);
-		}
-		scrollrt_draw_e_flag(x - 1, y + 1, sx - 64, sy);
-	}
 }
 
 /**
  * @brief Render object sprites
  * @param sx dPiece coordinate
  * @param sy dPiece coordinate
- * @param dx Backbuffer coordinate
- * @param dy Backbuffer coordinate
- * @param eflag Should the sorting workaround be applied
+ * @param dx Back buffer coordinate
+ * @param dy Back buffer coordinate
  */
-static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag)
+static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy)
 {
 	int mi, px, py, nCel, nMon, negMon, frames;
 	char bFlag, bDead, bObj, bItem, bPlr, bArch, bMap, negPlr, dd;
@@ -621,9 +683,17 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag)
 
 	assert((DWORD)sx < MAXDUNX);
 	assert((DWORD)sy < MAXDUNY);
+
+	if (dRendered[sx][sy])
+		return;
+	dRendered[sx][sy] = true;
+
+	light_table_index = dLight[sx][sy];
+
+	drawCell(sx, sy, dx, dy);
+
 	bFlag = dFlags[sx][sy];
 	bDead = dDead[sx][sy];
-	bArch = dArch[sx][sy];
 	bMap = dTransVal[sx][sy];
 
 	negMon = dMonster[sx][sy - 1];
@@ -654,70 +724,146 @@ static void scrollrt_draw_dungeon(int sx, int sy, int dx, int dy, int eflag)
 	DrawItem(sx, sy, dx, dy, 1);
 	if (bFlag & BFLAG_PLAYERLR) {
 		assert((DWORD)(sy-1) < MAXDUNY);
-		DrawPlayerHelper(sx, sy, -1, dx, dy, eflag);
+		DrawPlayerHelper(sx, sy, -1, dx, dy);
 	}
 	if (bFlag & BFLAG_MONSTLR && negMon < 0) {
-		DrawMonsterHelper(sx, sy, -1, dx, dy, eflag);
+		DrawMonsterHelper(sx, sy, -1, dx, dy);
 	}
 	if (bFlag & BFLAG_DEAD_PLAYER) {
 		DrawDeadPlayer(sx, sy, dx, dy);
 	}
 	if (dPlayer[sx][sy] > 0) {
-		DrawPlayerHelper(sx, sy, 0, dx, dy, eflag);
+		DrawPlayerHelper(sx, sy, 0, dx, dy);
 	}
 	if (dMonster[sx][sy] > 0) {
-		DrawMonsterHelper(sx, sy, 0, dx, dy, eflag);
+		DrawMonsterHelper(sx, sy, 0, dx, dy);
 	}
 	DrawMissile(sx, sy, dx, dy, FALSE);
 	DrawObject(sx, sy, dx, dy, 0);
 	DrawItem(sx, sy, dx, dy, 0);
 
-	if (bArch != 0) {
-		cel_transparency_active = TransList[bMap];
-		if (leveltype != DTYPE_TOWN) {
+	if (leveltype != DTYPE_TOWN) {
+		bArch = dSpecial[sx][sy];
+		if (bArch != 0) {
+			cel_transparency_active = TransList[bMap];
 			CelClippedBlitLightTrans(&gpBuffer[dx + BUFFER_WIDTH * dy], pSpecialCels, bArch, 64);
-		} else {
-#if 0 // Special tree rendering, disabled in 1.09
-			CelBlitFrame(&gpBuffer[dx + BUFFER_WIDTH * dy], pSpecialCels, bArch, 64);
-#endif
+		}
+	} else {
+		// Tree leafs should always cover player when entering or leaving the tile,
+		// So delay the rendering untill after the next row is being drawn.
+		// This could probably have been better solved by sprites in screen space.
+		if (sx > 0 && sy > 0 && dy > 32 + SCREEN_Y) {
+			bArch = dSpecial[sx - 1][sy - 1];
+			if (bArch != 0) {
+				CelBlitFrame(&gpBuffer[dx + BUFFER_WIDTH * (dy - 32)], pSpecialCels, bArch, 64);
+			}
 		}
 	}
 }
 
 /**
- * @brief Render a row of tile
+ * @brief Render a row of floor tiles
  * @param x dPiece coordinate
  * @param y dPiece coordinate
- * @param sx Backbuffer coordinate
- * @param sy Backbuffer coordinate
- * @param chunks tile width of row
- * @param row current row being rendered
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ * @param blocks Number of rows
+ * @param chunks Tile in a row
  */
-static void scrollrt_draw(int x, int y, int sx, int sy, int chunks, int row)
+static void scrollrt_drawFloor(int x, int y, int sx, int sy, int blocks, int chunks)
 {
 	assert(gpBuffer);
 
-	if (row & 1) {
-		x -= 1;
-		y += 1;
-		sx -= 32;
-		chunks += 1;
-	}
-
-	for (int j = 0; j < chunks; j++) {
-		if (y >= 0 && y < MAXDUNY && x >= 0 && x < MAXDUNX) {
-			level_piece_id = dPiece[x][y];
-			if (level_piece_id != 0) {
-				drawRow(x, y, sx, sy, 1);
+	for (int i = 0; i < (blocks << 1); i++) {
+		for (int j = 0; j < chunks ; j++) {
+			if (x >= 0 && x < MAXDUNX && y >= 0 && y < MAXDUNY) {
+				level_piece_id = dPiece[x][y];
+				if (level_piece_id != 0) {
+					if (!nSolidTable[level_piece_id])
+						drawFloor(x, y, sx, sy);
+				} else {
+					world_draw_black_tile(sx, sy);
+				}
 			} else {
 				world_draw_black_tile(sx, sy);
 			}
-		} else {
-			world_draw_black_tile(sx, sy);
+			x++;
+			y--;
+			sx += 64;
 		}
-		x++;
-		y--;
-		sx += 64;
+		// Return to start of row
+		x -= chunks;
+		y += chunks;
+		sx -= chunks * 64;
+		sy += 16;
+
+		// Jump to next row
+		if (i & 1) {
+			x++;
+			chunks--;
+			sx += 32;
+		} else {
+			y++;
+			chunks++;
+			sx -= 32;
+		}
+	}
+}
+
+#define IsWall(x, y) (dPiece[x][y] == 0 || nSolidTable[dPiece[x][y]] || dSpecial[x][y] != 0)
+#define IsWalktabke(x, y) (dPiece[x][y] != 0 && !nSolidTable[dPiece[x][y]])
+
+/**
+ * @brief Render a row of tile
+ * @param x dPiece coordinate
+ * @param y dPiece coordinate
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
+ * @param blocks Number of rows
+ * @param chunks Tile in a row
+ */
+static void scrollrt_draw(int x, int y, int sx, int sy, int blocks, int chunks)
+{
+	assert(gpBuffer);
+
+	for (int i = 0; i < (blocks << 1); i++) {
+		for (int j = 0; j < chunks ; j++) {
+			if (x >= 0 && x < MAXDUNX && y >= 0 && y < MAXDUNY) {
+				if (x + 1 < MAXDUNX && y - 1 >= 0 && sx + 64 <= SCREEN_X + SCREEN_WIDTH) {
+					// Render objects behind walls first to prevent sprites, that are moving
+					// between tiles, from poking through the walls as they exceed the tile bound.
+					// A propper fix for this would probably be to layout the sceen and render by
+					// sprite screen position rather then tile position.
+					if (IsWall(x, y) && (IsWall(x + 1, y) || (x > 0 && IsWall(x - 1, y)))) { // Part of a wall aligned on the x-axis
+						if (IsWalktabke(x + 1, y - 1) && IsWalktabke(x, y - 1) ) { // Has wakable area behind it
+							scrollrt_draw_dungeon(x + 1, y - 1, sx + 64, sy);
+						}
+					}
+				}
+				if (dPiece[x][y] != 0) {
+					scrollrt_draw_dungeon(x, y, sx, sy);
+				}
+			}
+			x++;
+			y--;
+			sx += 64;
+		}
+		// Return to start of row
+		x -= chunks;
+		y += chunks;
+		sx -= chunks * 64;
+		sy += 16;
+
+		// Jump to next row
+		if (i & 1) {
+			x++;
+			chunks--;
+			sx += 32;
+		} else {
+			y++;
+			chunks++;
+			sx -= 32;
+		}
 	}
 }
 
@@ -823,14 +969,10 @@ static void DrawGame(int x, int y)
 		break;
 	}
 
-	for (i = 0; i < (blocks << 1); i++) {
-		scrollrt_draw(x, y, sx, sy, chunks, i);
-		sy += 16;
-		if (i & 1)
-			y++;
-		else
-			x++;
-	}
+	memset(dRendered, 0, sizeof(dRendered));
+	scrollrt_drawFloor(x, y, sx, sy, blocks, chunks);
+	scrollrt_draw(x, y, sx, sy, blocks, chunks);
+
 	gpBufStart = &gpBuffer[BUFFER_WIDTH * SCREEN_Y];
 	gpBufEnd = &gpBuffer[BUFFER_WIDTH * (SCREEN_HEIGHT + SCREEN_Y)];
 
@@ -1073,11 +1215,11 @@ static void DrawFPS()
 }
 
 /**
- * @brief Update part of the screen from the backbuffer
- * @param dwX Backbuffer coordinate
- * @param dwY Backbuffer coordinate
- * @param dwWdt Backbuffer coordinate
- * @param dwHgt Backbuffer coordinate
+ * @brief Update part of the screen from the back buffer
+ * @param dwX Back buffer coordinate
+ * @param dwY Back buffer coordinate
+ * @param dwWdt Back buffer coordinate
+ * @param dwHgt Back buffer coordinate
  */
 static void DoBlitScreen(DWORD dwX, DWORD dwY, DWORD dwWdt, DWORD dwHgt)
 {
@@ -1154,6 +1296,10 @@ static void DrawMain(int dwHgt, BOOL draw_desc, BOOL draw_hp, BOOL draw_mana, BO
 	}
 }
 
+/**
+ * @brief Redraw screen
+ * @param draw_cursor
+ */
 void scrollrt_draw_game_screen(BOOL draw_cursor)
 {
 	int hgt;
@@ -1212,7 +1358,7 @@ void DrawAndBlit()
 	lock_buf(0);
 	DrawView(ViewX, ViewY);
 	if (ctrlPan) {
-		ClearCtrlPan();
+		DrawCtrlPan();
 	}
 	if (drawhpflag) {
 		UpdateLifeFlask();
@@ -1221,7 +1367,7 @@ void DrawAndBlit()
 		UpdateManaFlask();
 	}
 	if (drawbtnflag) {
-		DrawCtrlPan();
+		DrawCtrlBtns();
 	}
 	if (drawsbarflag) {
 		DrawInvBelt();

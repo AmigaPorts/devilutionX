@@ -1,4 +1,4 @@
-#include "diablo.h"
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -89,6 +89,44 @@ static DWORD SolidMask[32] = {
 	0xFFFFFFFF, 0xFFFFFFFF
 };
 
+static DWORD RightFoliageMask[32] = {
+	0xFFFFFFFF, 0x3FFFFFFF,
+	0x0FFFFFFF, 0x03FFFFFF,
+	0x00FFFFFF, 0x003FFFFF,
+	0x000FFFFF, 0x0003FFFF,
+	0x0000FFFF, 0x00003FFF,
+	0x00000FFF, 0x000003FF,
+	0x000000FF, 0x0000003F,
+	0x0000000F, 0x00000003,
+	0x00000000, 0x00000003,
+	0x0000000F, 0x0000003F,
+	0x000000FF, 0x000003FF,
+	0x00000FFF, 0x00003FFF,
+	0x0000FFFF, 0x0003FFFF,
+	0x000FFFFF, 0x003FFFFF,
+	0x00FFFFFF, 0x03FFFFFF,
+	0x0FFFFFFF, 0x3FFFFFFF,
+};
+
+static DWORD LeftFoliageMask[32] = {
+	0xFFFFFFFF, 0xFFFFFFFC,
+	0xFFFFFFF0, 0xFFFFFFC0,
+	0xFFFFFF00, 0xFFFFFC00,
+	0xFFFFF000, 0xFFFFC000,
+	0xFFFF0000, 0xFFFC0000,
+	0xFFF00000, 0xFFC00000,
+	0xFF000000, 0xFC000000,
+	0xF0000000, 0xC0000000,
+	0x00000000, 0xC0000000,
+	0xF0000000, 0xFC000000,
+	0xFF000000, 0xFFC00000,
+	0xFFF00000, 0xFFFC0000,
+	0xFFFF0000, 0xFFFFC000,
+	0xFFFFF000, 0xFFFFFC00,
+	0xFFFFFF00, 0xFFFFFFC0,
+	0xFFFFFFF0, 0xFFFFFFFC,
+};
+
 inline static void RenderLine(BYTE **dst, BYTE **src, int n, BYTE *tbl, DWORD mask)
 {
 	int i;
@@ -142,8 +180,11 @@ inline static void RenderLine(BYTE **dst, BYTE **src, int n, BYTE *tbl, DWORD ma
 #if defined(__clang__) || defined(__GNUC__)
 __attribute__((no_sanitize("shift-base")))
 #endif
-void
-RenderTile(BYTE *pBuff)
+/**
+ * @brief Blit current world CEL to the given buffer
+ * @param pBuff Output buffer
+ */
+void RenderTile(BYTE *pBuff)
 {
 	int i, j;
 	char c, v, tile;
@@ -174,6 +215,16 @@ RenderTile(BYTE *pBuff)
 			if (c == 2 || c == 3) {
 				mask = &RightMask[31];
 			}
+		}
+	} else if (arch_draw_type && cel_foliage_active) {
+		if (tile != RT_TRANSPARENT) {
+			return;
+		}
+		if (arch_draw_type == 1) {
+			mask = &LeftFoliageMask[31];
+		}
+		if (arch_draw_type == 2) {
+			mask = &RightFoliageMask[31];
 		}
 	}
 
@@ -252,30 +303,41 @@ RenderTile(BYTE *pBuff)
 
 /**
  * @brief Render a black tile
- * @param pBuff pointer where to render the tile
+ * @param sx Back buffer coordinate
+ * @param sy Back buffer coordinate
  */
 void world_draw_black_tile(int sx, int sy)
 {
 	int i, j, k;
 	BYTE *dst;
 
-	if (sx >= SCREEN_WIDTH - 64 || sy >= SCREEN_HEIGHT - 32)
+	if (sx >= SCREEN_X + SCREEN_WIDTH || sy >= SCREEN_Y + VIEWPORT_HEIGHT + 32)
+		return;
+
+	if (sx < SCREEN_X - 60 || sy < SCREEN_Y)
 		return;
 
 	dst = &gpBuffer[sx + BUFFER_WIDTH * sy] + 30;
 
 	for (i = 30, j = 1; i >= 0; i -= 2, j++, dst -= BUFFER_WIDTH + 2) {
-		memset(dst, 0, 4 * j);
+		if (dst < gpBufEnd)
+			memset(dst, 0, 4 * j);
 	}
 	dst += 4;
 	for (i = 2, j = 15; i != 32; i += 2, j--, dst -= BUFFER_WIDTH - 2) {
-		memset(dst, 0, 4 * j);
+		if (dst < gpBufEnd)
+			memset(dst, 0, 4 * j);
 	}
 }
 
 /**
  * Draws a half-transparent rectangle by blacking out odd pixels on odd lines,
  * even pixels on even lines.
+ * @brief Render a transparent black rectangle
+ * @param sx Screen coordinate
+ * @param sy Screen coordinate
+ * @param width Rectangle width
+ * @param height Rectangle height
  */
 void trans_rect(int sx, int sy, int width, int height)
 {

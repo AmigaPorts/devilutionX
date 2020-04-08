@@ -1,4 +1,4 @@
-#include "devilution.h"
+#include "all.h"
 #include "DiabloUI/diabloui.h"
 #include "DiabloUI/selok.h"
 
@@ -29,7 +29,11 @@ void UiMainMenuSelect(int value)
 
 void mainmenu_Esc()
 {
-	UiMainMenuSelect(MAINMENU_EXIT_DIABLO);
+	if (SelectedItem == MAINMENU_EXIT_DIABLO) {
+		UiMainMenuSelect(MAINMENU_EXIT_DIABLO);
+	} else {
+		SelectedItem = MAINMENU_EXIT_DIABLO;
+	}
 }
 
 void mainmenu_restart_repintro()

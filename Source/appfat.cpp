@@ -1,11 +1,18 @@
-#include "diablo.h"
+/**
+ * @file appfat.cpp
+ *
+ * Implementation of error dialogs.
+ */
+#include "all.h"
 #include "../3rdParty/Storm/Source/storm.h"
 #include <config.h>
 
 DEVILUTION_BEGIN_NAMESPACE
 
 char sz_error_buf[256];
+/** Set to true when a fatal error is encountered and the application should shut down. */
 BOOL terminating;
+/** Thread id of the last callee to FreeDlg(). */
 int cleanup_thread_id;
 
 void app_fatal(const char *pszFmt, ...)
@@ -79,7 +86,6 @@ void ErrDlg(const char *title, const char *error, char *log_file_path, int log_l
 	app_fatal(NULL);
 }
 
-
 void FileErrDlg(const char *error)
 {
 	char text[1024];
@@ -115,7 +121,7 @@ void InsertCDDlg(const char *fileName)
 	    "Make sure that it is in the game folder and that the file name is in all lowercase.",
 	    fileName);
 
-	UiErrorOkDialog("Date File Error", text);
+	UiErrorOkDialog("Data File Error", text);
 	app_fatal(NULL);
 }
 

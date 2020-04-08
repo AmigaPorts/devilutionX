@@ -1,4 +1,8 @@
-//HEADER_GOES_HERE
+/**
+ * @file items.h
+ *
+ * Interface of item functionality.
+ */
 #ifndef __ITEMS_H__
 #define __ITEMS_H__
 
@@ -35,7 +39,7 @@ void CreatePlrItems(int p);
 BOOL ItemSpaceOk(int i, int j);
 BOOL GetItemSpace(int x, int y, char inum);
 void GetSuperItemSpace(int x, int y, char inum);
-void GetSuperItemLoc(int x, int y, int &xx, int &yy);
+void GetSuperItemLoc(int x, int y, int *xx, int *yy);
 void CalcItemValue(int i);
 void GetBookSpell(int i, int lvl);
 void GetStaffPower(int i, int lvl, int bs, BOOL onlygood);

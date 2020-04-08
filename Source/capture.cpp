@@ -1,11 +1,23 @@
+/**
+ * @file capture.cpp
+ *
+ * Implementation of the screenshot function.
+ */
 #include <fstream>
 
-#include "diablo.h"
+#include "all.h"
 #include "../3rdParty/Storm/Source/storm.h"
 #include "file_util.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
+/**
+ * @brief Write the PCX-file header
+ * @param width Image width
+ * @param height Image height
+ * @param out File stream to write to
+ * @return True on success
+ */
 static BOOL CaptureHdr(short width, short height, std::ofstream *out)
 {
 	DWORD lpNumBytes;
@@ -29,7 +41,7 @@ static BOOL CaptureHdr(short width, short height, std::ofstream *out)
 
 static BOOL CapturePal(SDL_Color *palette, std::ofstream *out)
 {
-	BYTE pcx_palette[769];
+	BYTE pcx_palette[1 + 256 * 3];
 	int i;
 
 	pcx_palette[0] = 12;

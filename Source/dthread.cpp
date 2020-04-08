@@ -1,4 +1,9 @@
-#include "diablo.h"
+/**
+ * @file dthread.cpp
+ *
+ * Implementation of functions for updating game state from network commands.
+ */
+#include "all.h"
 #include "../3rdParty/Storm/Source/storm.h"
 
 DEVILUTION_BEGIN_NAMESPACE
@@ -73,7 +78,7 @@ void dthread_start()
 	}
 }
 
-unsigned int dthread_handler(void *)
+unsigned int dthread_handler(void *data)
 {
 	const char *error_buf;
 	TMegaPkt *pkt;

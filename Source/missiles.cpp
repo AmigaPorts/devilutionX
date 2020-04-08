@@ -1,4 +1,9 @@
-#include "diablo.h"
+/**
+ * @file missiles.cpp
+ *
+ * Implementation of missile functionality.
+ */
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -11,7 +16,9 @@ ChainStruct chain[MAXMISSILES];
 BOOL MissilePreFlag;
 int numchains;
 
+/** Maps from direction to X-offset. */
 int XDirAdd[8] = { 1, 0, -1, -1, -1, 0, 1, 1 };
+/** Maps from direction to Y-offset. */
 int YDirAdd[8] = { 1, 1, 1, 0, -1, -1, -1, 0 };
 
 void GetDamageAmt(int i, int *mind, int *maxd)
@@ -510,7 +517,7 @@ BOOL MonsterTrapHit(int m, int mindam, int maxdam, int dist, int t, BOOLEAN shif
 		hper = 5;
 	if (hper > 95)
 		hper = 95;
-	if (CheckMonsterHit(m, ret)) {
+	if (CheckMonsterHit(m, &ret)) {
 		return ret;
 	}
 #ifdef _DEBUG
@@ -608,7 +615,7 @@ BOOL MonsterMHit(int pnum, int m, int mindam, int maxdam, int dist, int t, BOOLE
 		hper = 95;
 	if (monster[m]._mmode == MM_STONE)
 		hit = 0;
-	if (CheckMonsterHit(m, ret))
+	if (CheckMonsterHit(m, &ret))
 		return ret;
 #ifdef _DEBUG
 	if (hit >= hper && !debug_mode_key_inverted_v && !debug_mode_dollar_sign)
@@ -2382,7 +2389,7 @@ void AddResurrectBeam(int mi, int sx, int sy, int dx, int dy, int midir, char mi
 	missile[mi]._misy = missile[mi]._miy;
 	missile[mi]._mixvel = 0;
 	missile[mi]._miyvel = 0;
-	missile[mi]._mirange = misfiledata[36].mAnimLen[0];
+	missile[mi]._mirange = misfiledata[MFILE_RESSUR1].mAnimLen[0];
 }
 
 void AddTelekinesis(int mi, int sx, int sy, int dx, int dy, int midir, char mienemy, int id, int dam)

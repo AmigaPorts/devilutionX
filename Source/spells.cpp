@@ -1,4 +1,4 @@
-#include "diablo.h"
+#include "all.h"
 
 DEVILUTION_BEGIN_NAMESPACE
 
@@ -88,7 +88,7 @@ BOOL CheckSpell(int id, int sn, char st, BOOL manaonly)
 #endif
 
 	result = TRUE;
-	if (!manaonly && pcurs != 1) {
+	if (!manaonly && pcurs != CURSOR_HAND) {
 		result = FALSE;
 	} else {
 		if (st != RSPLTYPE_SKILL) {
