@@ -15,17 +15,21 @@ option(NIGHTLY_BUILD "Enable options for nightly build" OFF)
 option(USE_SDL1 "Use SDL1.2 instead of SDL2" OFF)
 option(NONET "Disable network" OFF)
 option(RUN_TESTS "Build and run tests" OFF)
+RELEASE_OPTION(CPACK "Configure CPack")
+
 
 if(BINARY_RELEASE OR CMAKE_BUILD_TYPE STREQUAL "Release")
   set(BINARY_RELEASE ON)
-  set(CMAKE_BUILD_TYPE "Release")
+  set(CMAKE_BUILD_TYPE "Release" CACHE STRING "")
   set(DIST ON)
+  set(CPACK ON)
 endif()
 
 if(NIGHTLY_BUILD OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
   set(NIGHTLY_BUILD ON)
-  set(CMAKE_BUILD_TYPE "RelWithDebInfo")
+  set(CMAKE_BUILD_TYPE "RelWithDebInfo" CACHE STRING "")
   set(DIST ON)
+  set(CPACK ON)
 endif()
 
 if(NOT VERSION_NUM)
@@ -37,9 +41,19 @@ if(NOT VERSION_NUM)
   endif()
 endif()
 
-project(DevilutionX
-  VERSION ${VERSION_NUM}
-  LANGUAGES C CXX)
+find_program(CCACHE_PROGRAM ccache)
+if(CCACHE_PROGRAM)
+  set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE "${CCACHE_PROGRAM}")
+endif()
+
+if(VERSION_NUM MATCHES untagged)
+  project(DevilutionX
+    LANGUAGES C CXX)
+else()
+  project(DevilutionX
+    VERSION ${VERSION_NUM}
+    LANGUAGES C CXX)
+endif()
 
 # Not a genexp because CMake doesn't support it
 # https://gitlab.kitware.com/cmake/cmake/-/issues/20546
@@ -332,6 +346,9 @@ endif()
 
 add_executable(${BIN_TARGET} WIN32 MACOSX_BUNDLE ${devilutionx_SRCS})
 
+# Copy the font to the build directory to it works from the build directory
+file(COPY "Packaging/resources/CharisSILB.ttf" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+
 # Use file GENERATE instead of configure_file because configure_file
 # does not support generator expressions.
 get_property(is_multi_config GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
@@ -400,7 +417,8 @@ foreach(
   TTF_FONT_PATH
   SDL1_VIDEO_MODE_WIDTH
   SDL1_VIDEO_MODE_HEIGHT
-  TTF_FONT_PATH
+  TTF_FONT_DIR
+  TTF_FONT_NAME
   SDL1_VIDEO_MODE_BPP
   SDL1_VIDEO_MODE_FLAGS
   HAS_KBCTRL
@@ -447,6 +465,7 @@ foreach(
   JOY_BUTTON_TRIGGERRIGHT
   JOY_BUTTON_START
   JOY_BUTTON_BACK
+  REMAP_KEYBOARD_KEYS
 )
   if(DEFINED ${def_name})
     list(APPEND def_list ${def_name}=${${def_name}})
@@ -575,12 +594,7 @@ if(APPLE)
   endif()
 
   set(MACOSX_BUNDLE_LONG_VERSION_STRING "Version ${PROJECT_VERSION}")
-  set(CPACK_PACKAGE_FILE_NAME "devilutionx")
-  set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK "ON")
-  set(CPACK_STRIP_FILES TRUE)
-  set(CPACK_GENERATOR "DragNDrop")
-
-  include(CPack)
+  set(CPACK On)
 endif()
 
 if(SWITCH)
@@ -592,15 +606,71 @@ if(SWITCH)
   build_switch_binaries(${BIN_TARGET})
 endif()
 
-if(${CMAKE_SYSTEM_NAME} STREQUAL Linux)
-  set(CPACK_PACKAGE_NAME "devilutionx")
-  string(TOLOWER "${CPACK_PACKAGE_NAME}-${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}" CPACK_PACKAGE_FILE_NAME)
-  set(CPACK_STRIP_FILES TRUE)
-  set(CPACK_GENERATOR "7Z")
+if(CPACK)
+  if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    string(TOLOWER ${PROJECT_NAME} project_name)
+    set(CPACK_PACKAGE_NAME ${project_name})
+    set(CPACK_GENERATOR "7Z")
+    # Common *nix files
+    set(CPACK_STRIP_FILES TRUE)
+    install(TARGETS ${BIN_TARGET} DESTINATION bin)
+    set(desktop_file "${PROJECT_SOURCE_DIR}/Packaging/nix/${project_name}.desktop")
 
-  install (TARGETS ${BIN_TARGET} DESTINATION ./)
-  install (FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/CharisSILB.ttf" DESTINATION ./)
-  install (FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/LICENSE.CharisSILB.txt" DESTINATION ./)
-  install (FILES "${PROJECT_SOURCE_DIR}/Packaging/nix/README.txt" DESTINATION ./)
+    find_program(DFI desktop-file-install)
+    if(DFI)
+      execute_process(COMMAND ${DFI} --dir=${CMAKE_BINARY_DIR} ${desktop_file})
+      set(desktop_file "${CMAKE_BINARY_DIR}/${project_name}.desktop")
+    endif()
+
+    install(FILES "${desktop_file}"
+      DESTINATION "share/applications"
+    )
+    install(FILES
+        "${PROJECT_SOURCE_DIR}/Packaging/nix/README.txt"
+      DESTINATION "share/diasurgical/${project_name}"
+    )
+    install(FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/16.png"
+      DESTINATION "share/icons/hicolor/16x16/apps"
+      RENAME "${project_name}.png"
+    )
+    install(FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/Diablo_32.png"
+      DESTINATION "share/icons/hicolor/32x32/apps"
+      RENAME "${project_name}.png"
+    )
+    install(FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/Diablo_48.png"
+      DESTINATION "share/icons/hicolor/48x48/apps"
+      RENAME "${project_name}.png"
+    )
+    install(FILES "${PROJECT_SOURCE_DIR}/Packaging/resources/CharisSILB.ttf"
+      DESTINATION "share/fonts/truetype"
+    )
+
+    # -G DEB
+    set(CPACK_PACKAGE_CONTACT "kai@gnukai.com")
+    set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
+    set(CPACK_DEBIAN_FILE_NAME DEB-DEFAULT)
+    
+    # -G RPM
+    set(CPACK_RPM_FILE_NAME RPM-DEFAULT)
+
+    find_program(RPMBUILD rpmbuild)
+    if(RPMBUILD)
+      list(APPEND CPACK_GENERATOR "RPM")
+    endif()
+    find_program(DPKG dpkg)
+    if(DPKG)
+      list(APPEND CPACK_GENERATOR "DEB")
+    endif()
+
+  elseif(APPLE)
+    set(CPACK_PACKAGE_FILE_NAME "devilutionx")
+    set(CPACK_DMG_DISABLE_APPLICATIONS_SYMLINK "ON")
+    set(CPACK_STRIP_FILES TRUE)
+    set(CPACK_GENERATOR "DragNDrop")
+  endif()
+
+  set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+  set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+  set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
   include(CPack)
 endif()
