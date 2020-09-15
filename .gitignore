@@ -128,7 +128,6 @@ StyleCopReport.xml
 *.pidb
 *.svclog
 *.scc
-CMakeSettings.json
 
 # Chutzpah Test files
 _Chutzpah*
@@ -143,6 +142,9 @@ ipch/
 *.cachefile
 *.VC.db
 *.VC.VC.opendb
+
+# Vim swap files
+*.swp
 
 # Visual Studio profiler
 *.psess
